@@ -1793,8 +1793,6 @@ void CEXISlippi::startFindMatch(u8 *payload)
 
 void CEXISlippi::prepareOnlineMatchState()
 {
-	// This match block is a VS match with P1 Red Falco vs P2 Red Bowser on Battlefield. The proper values will
-	// be overwritten
 	std::vector<u8> onlineMatchBlock = customMatchBlock;
 	INFO_LOG(SLIPPI, "POMATCH INFO: %i=0x%x", 96, onlineMatchBlock[96]);
 
@@ -2046,7 +2044,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	if (stageSelectOption == 3)
 	{
 		// If stage requested is random, select a random stage
-		s.stageId = getRandomStage();
+		s.stageId = 0x5;//getRandomStage();
 	}
 
 	s.rngOffset = generator() % 0xFFFF;
