@@ -1070,7 +1070,8 @@ void CEXISlippi::prepareGeckoList()
 	    {0x800cc818, true}, // External/GreenDuringWait/fall.asm
 	    {0x8008a478, true}, // External/GreenDuringWait/wait.asm
 
-	    {0x802f6690, true}, // HUD Transparency v1.1
+	    {0x802f6690, true}, // HUD Transparency v1.1 (https://smashboards.com/threads/transparent-hud-v1-1.508509/)
+	    {0x802F71E0, true}, // Smaller "Ready, GO!" (https://smashboards.com/threads/smaller-ready-go.509740/)
 	};
 
 	std::unordered_map<u32, bool> blacklist;
@@ -1486,13 +1487,23 @@ void CEXISlippi::prepareIsFileReady()
 	m_read_queue.push_back(1);
 }
 
+// The original reason for this was to avoid crashes when people disconnected during CSS/VSS Screens, causing that
+// slippi_netplay got set to null on it's own thread and then the instance of the ExiDevice would crash while performing
+// a method that was that used it.
+// Maybe someone smart can fix that logic instead of this monkey patch.
 bool CEXISlippi::isDisconnected()
 {
 	if (!slippi_netplay)
 		return true;
 
-	auto status = slippi_netplay->GetSlippiConnectStatus();
-	return status != SlippiNetplayClient::SlippiConnectStatus::NET_CONNECT_STATUS_CONNECTED || isConnectionStalled;
+	// TODO: Figure out why connection status is not "CONNECTED" while initializing a match and coming back to CSS,
+	// err back into dumb return false until then.
+	return false;
+
+
+//	auto status = slippi_netplay->GetSlippiConnectStatus();
+//	return status != SlippiNetplayClient::SlippiConnectStatus::NET_CONNECT_STATUS_CONNECTED &&
+//        status != SlippiNetplayClient::SlippiConnectStatus::NET_CONNECT_STATUS_INITIATED;
 }
 
 static int tempTestCount = 0;
@@ -1620,6 +1631,17 @@ void CEXISlippi::handleSendInputs(u8 *payload)
 
 	int32_t frame = payload[0] << 24 | payload[1] << 16 | payload[2] << 8 | payload[3];
 	u8 delay = payload[4];
+
+	// On the first frame sent, we need to queue up empty dummy pads for as many
+	//	frames as we have delay
+	if (frame == 1)
+	{
+		for (int i = 1; i <= delay; i++)
+		{
+			auto empty = std::make_unique<SlippiPad>(i);
+			slippi_netplay->SendSlippiPad(std::move(empty));
+		}
+	}
 
 	auto pad = std::make_unique<SlippiPad>(frame + delay, &payload[5]);
 
@@ -2104,6 +2126,7 @@ void CEXISlippi::setMatchInfo(u8 *payload)
 
 void CEXISlippi::handleChatMessage(u8 *payload)
 {
+	if(!SConfig::GetInstance().m_slippiEnableQuickChat) return;
 
 	int messageId = payload[0];
 	INFO_LOG(SLIPPI, "SLIPPI CHAT INPUT: 0x%x", messageId);

@@ -188,12 +188,12 @@ unsigned int SlippiNetplayClient::OnData(sf::Packet &packet)
 			int32_t headFrame = remotePadQueue.empty() ? 0 : remotePadQueue.front()->frame;
 			int inputsToCopy = frame - headFrame;
 
-			//// Check that the packet actually contains the data it claims to
-			// if((5 + inputsToCopy * SLIPPI_PAD_DATA_SIZE) > (int)packet.getDataSize())
-			//{
-			//	ERROR_LOG(SLIPPI_ONLINE, "Netplay packet too small to read pad buffer");
-			//	break;
-			//}
+			// Check that the packet actually contains the data it claims to
+			if((5 + inputsToCopy * SLIPPI_PAD_DATA_SIZE) > (int)packet.getDataSize())
+			{
+				ERROR_LOG(SLIPPI_ONLINE, "Netplay packet too small to read pad buffer");
+				break;
+			}
 
 			for (int i = inputsToCopy - 1; i >= 0; i--)
 			{
@@ -652,6 +652,9 @@ void SlippiNetplayClient::SetMatchSelections(SlippiPlayerSelections &s)
 
 u8 SlippiNetplayClient::GetSlippiRemoteChatMessage()
 {
+	if(!SConfig::GetInstance().m_slippiEnableQuickChat) {
+		return 0;
+	}
 	u8 copiedMessageId = remoteChatMessageId;
 	remoteChatMessageId = 0; // Clear it out
 	return copiedMessageId;
@@ -659,6 +662,9 @@ u8 SlippiNetplayClient::GetSlippiRemoteChatMessage()
 
 u8 SlippiNetplayClient::GetSlippiRemoteSentChatMessage()
 {
+	if(!SConfig::GetInstance().m_slippiEnableQuickChat) {
+		return 0;
+	}
 	u8 copiedMessageId = remoteSentChatMessageId;
 	remoteSentChatMessageId = 0; // Clear it out
 	return copiedMessageId;
