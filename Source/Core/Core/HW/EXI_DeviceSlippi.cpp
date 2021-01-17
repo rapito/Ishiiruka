@@ -36,7 +36,7 @@
 #define SLEEP_TIME_MS 8
 #define WRITE_FILE_SLEEP_TIME_MS 85
 
-#define LOCAL_TESTING
+//#define LOCAL_TESTING
 //#define CREATE_DIFF_FILES
 
 static std::unordered_map<u8, std::string> slippi_names;
@@ -2066,7 +2066,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	if (stageSelectOption == 3)
 	{
 		// If stage requested is random, select a random stage
-		s.stageId = 0x5;//getRandomStage();
+		s.stageId = getRandomStage();
 	}
 
 	s.rngOffset = generator() % 0xFFFF;
