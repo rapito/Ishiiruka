@@ -36,7 +36,7 @@
 #define SLEEP_TIME_MS 8
 #define WRITE_FILE_SLEEP_TIME_MS 85
 
-//#define LOCAL_TESTING
+#define LOCAL_TESTING
 //#define CREATE_DIFF_FILES
 
 static std::unordered_map<u8, std::string> slippi_names;
@@ -1815,8 +1815,7 @@ void CEXISlippi::startFindMatch(u8 *payload)
 
 void CEXISlippi::prepareOnlineMatchState()
 {
-	std::vector<u8> onlineMatchBlock = customMatchBlock;
-	INFO_LOG(SLIPPI, "POMATCH INFO: %i=0x%x", 96, onlineMatchBlock[96]);
+	std::vector<u8> onlineMatchBlock = defaultMatchBlock;
 
 	m_read_queue.clear();
 
@@ -1948,6 +1947,12 @@ void CEXISlippi::prepareOnlineMatchState()
 			return;
 		}
 
+		// Set match rules of the decider
+		onlineMatchBlock = isDecider ? lps.matchRules : rps.matchRules;
+		onlineMatchBlock = defaultMatchBlock;
+		INFO_LOG(SLIPPI, "onlineMatchBlock");
+//		INFO_LOG(SLIPPI, "POMATCH INFO: %i=0x%x", 96, onlineMatchBlock[96]);
+
 		// Overwrite local player character
 		onlineMatchBlock[0x60 + localPlayerIndex * 0x24] = lps.characterId;
 		onlineMatchBlock[0x63 + localPlayerIndex * 0x24] = lps.characterColor;
@@ -2071,6 +2076,28 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	s.rngOffset = generator() % 0xFFFF;
 
+	u8 matchRulesOption = payload[6];
+	std::vector<u8> matchRules;
+
+	switch (matchRulesOption)
+	{
+	case 1:
+		matchRules = std::vector<u8>();
+		matchRules.insert(matchRules.end(), payload+7, payload+7 + 0x138);
+		break;
+	case 2:
+		matchRules = RJJMatchBlock;
+		break;
+	default:
+		matchRules = defaultMatchBlock;
+		break;
+	}
+
+	// Set selected Ruleset
+
+	s.matchRules = matchRules;
+//	s.matchRules = defaultMatchBlock;
+
 	// Merge these selections
 	localSelections.Merge(s);
 
@@ -2111,15 +2138,21 @@ void CEXISlippi::prepareFileLoad(u8 *payload)
 	m_read_queue.insert(m_read_queue.end(), buf.begin(), buf.end());
 }
 
+// TODO: remove, not needed anymore
 void CEXISlippi::setMatchInfo(u8 *payload)
 {
-
-	customMatchBlock = std::vector<u8>();
-	customMatchBlock.insert(customMatchBlock.end(), payload, payload + 0x138);
-	INFO_LOG(SLIPPI, "MATCH INFO: %i=0x%x", 96, customMatchBlock[96]);
+	std::vector<u8> matchRules = std::vector<u8>();
+	matchRules.insert(matchRules.end(), payload, payload + 0x138);
 
 #ifdef LOCAL_TESTING
 #endif
+//	localSelections.matchRules = matchRules;
+//
+//	if (slippi_netplay)
+//	{
+//		slippi_netplay->SetMatchSelections(localSelections);
+//		INFO_LOG(SLIPPI, "setMatchInfo");
+//	}
 
 }
 

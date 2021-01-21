@@ -44,6 +44,7 @@ class SlippiPlayerSelections
 
 	u16 stageId = 0;
 	bool isStageSelected = false;
+	std::vector<u8> matchRules;
 
 	u32 rngOffset = 0;
 
@@ -64,7 +65,11 @@ class SlippiPlayerSelections
 			this->characterId = s.characterId;
 			this->characterColor = s.characterColor;
 			this->isCharacterSelected = true;
+
+			this->matchRules = s.matchRules;
 		}
+
+
 	}
 
 	void Reset()
