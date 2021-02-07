@@ -387,7 +387,9 @@ void SlippiNetplayClient::writeToPacket(sf::Packet &packet, SlippiPlayerSelectio
 	packet << s.teamId;
 
     packet << s.areMatchRulesSet;
-    for (int i = 0; i < 0x138; i++)
+	u8 matchRulesSize = s.matchRules.size();
+	packet << matchRulesSize;
+    for (int i = 0; i < matchRulesSize; i++)
 	{
 		packet << s.matchRules[i];
 	}
@@ -427,7 +429,10 @@ std::unique_ptr<SlippiPlayerSelections> SlippiNetplayClient::readSelectionsFromP
 	packet >> s->teamId;
 
     packet >> s->areMatchRulesSet;
-    for (int i = 0; i < 0x138; i++)
+	u8 matchRulesSize = 0;
+	packet >> matchRulesSize;
+
+    for (int i = 0; i < matchRulesSize; i++)
     {
 		u8 data;
         packet >> data;
