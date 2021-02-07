@@ -49,8 +49,9 @@ class SlippiPlayerSelections
 	bool isCharacterSelected = false;
 
 	u16 stageId = 0;
-	bool isStageSelected = false;
-	std::vector<u8> matchRules;
+    bool isStageSelected = false;
+    bool areMatchRulesSet = false;
+    std::vector<u8> matchRules;
 
 	u32 rngOffset = 0;
 
@@ -64,6 +65,9 @@ class SlippiPlayerSelections
 		{
 			this->stageId = s.stageId;
 			this->isStageSelected = true;
+
+            this->areMatchRulesSet = s.areMatchRulesSet;
+            this->matchRules = s.matchRules;
 		}
 
 		if (s.isCharacterSelected)
@@ -72,8 +76,6 @@ class SlippiPlayerSelections
 			this->characterColor = s.characterColor;
 			this->teamId = s.teamId;
 			this->isCharacterSelected = true;
-
-			this->matchRules = s.matchRules;
 		}
 
 

@@ -1870,6 +1870,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
 	m_read_queue.push_back(mmState); // Matchmaking State
 
+	u8 matchInfoReady = 0;//localSelections.matchRules.empty() ? 0 : 1;
 	u8 localPlayerReady = localSelections.isCharacterSelected;
 	u8 remotePlayersReady = 0;
 	u8 localPlayerIndex = matchmaking->LocalPlayerIndex();
@@ -2053,11 +2054,8 @@ void CEXISlippi::prepareOnlineMatchState()
 
 		// Set match rules of the decider
 		onlineMatchBlock = isDecider ? lps.matchRules : rps[0].matchRules;
-		onlineMatchBlock = defaultMatchBlock;
-		INFO_LOG(SLIPPI, "onlineMatchBlock");
-//		INFO_LOG(SLIPPI, "POMATCH INFO: %i=0x%x", 96, onlineMatchBlock[96]);
 
-		// Overwrite local player character
+        // Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
 		onlineMatchBlock[0x63 + (lps.playerIdx) * 0x24] = lps.characterColor;
 		onlineMatchBlock[0x67 + (lps.playerIdx) * 0x24] = 0;
@@ -2114,8 +2112,15 @@ void CEXISlippi::prepareOnlineMatchState()
 
 		// Overwrite stage information. Make sure everyone loads the same stage
 		u16 stageId = 0x1F; // Default to battlefield if there was no selection
+		matchInfoReady = 1;
 		for (auto selections : orderedSelections)
 		{
+			// Check if all players already set their match info
+			if(!selections.areMatchRulesSet && !isDecider) {
+				// if there's at least one player that has not set their rules, then clear
+				matchInfoReady=0;
+			}
+
 			if (!selections.isStageSelected)
 				continue;
 
@@ -2153,6 +2158,9 @@ void CEXISlippi::prepareOnlineMatchState()
 		leftTeamPlayers[3] = leftTeamSize;
 		rightTeamPlayers[3] = rightTeamSize;
 	}
+
+	// Add match info ready status
+    m_read_queue.push_back(matchInfoReady);
 
 	// Add rng offset to output
 	appendWordToBuffer(&m_read_queue, rngOffset);
@@ -2311,7 +2319,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	// Set selected Ruleset
 
 	s.matchRules = matchRules;
-//	s.matchRules = defaultMatchBlock;
+	s.matchRules = defaultMatchBlock;
 
 	// Merge these selections
 	localSelections.Merge(s);
@@ -2394,24 +2402,26 @@ void CEXISlippi::prepareGctLoad(u8 *payload)
 	m_read_queue.insert(m_read_queue.end(), gct.begin(), gct.end());
 }
 
-// TODO: remove, not needed anymore
 void CEXISlippi::setMatchInfo(u8 *payload)
 {
 	std::vector<u8> matchRules = std::vector<u8>();
 	matchRules.insert(matchRules.end(), payload, payload + 0x138);
 
 #ifdef LOCAL_TESTING
+	if(!slippi_netplay)
+        slippi_netplay = std::make_unique<SlippiNetplayClient>(true);
+#else
+    slippi_netplay = matchmaking->GetNetplayClient();
 #endif
-//	localSelections.matchRules = matchRules;
-//
-//	if (slippi_netplay)
-//	{
-//		slippi_netplay->SetMatchSelections(localSelections);
-//		INFO_LOG(SLIPPI, "setMatchInfo");
-//	}
+	localSelections.areMatchRulesSet = true;
+	localSelections.matchRules = matchRules;
+
+	if (slippi_netplay)
+	{
+		slippi_netplay->SetMatchSelections(localSelections);
+	}
 
 }
-
 
 void CEXISlippi::handleChatMessage(u8 *payload)
 {

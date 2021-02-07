@@ -385,6 +385,12 @@ void SlippiNetplayClient::writeToPacket(sf::Packet &packet, SlippiPlayerSelectio
 	packet << s.stageId << s.isStageSelected;
 	packet << s.rngOffset;
 	packet << s.teamId;
+
+    packet << s.areMatchRulesSet;
+    for (int i = 0; i < 0x138; i++)
+	{
+		packet << s.matchRules[i];
+	}
 }
 
 void SlippiNetplayClient::WriteChatMessageToPacket(sf::Packet &packet, int messageId, u8 playerIdx)
@@ -419,6 +425,14 @@ std::unique_ptr<SlippiPlayerSelections> SlippiNetplayClient::readSelectionsFromP
 
 	packet >> s->rngOffset;
 	packet >> s->teamId;
+
+    packet >> s->areMatchRulesSet;
+    for (int i = 0; i < 0x138; i++)
+    {
+		u8 data;
+        packet >> data;
+		s->matchRules.push_back(data);
+    }
 
 	return std::move(s);
 }
