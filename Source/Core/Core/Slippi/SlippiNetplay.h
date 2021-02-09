@@ -37,6 +37,7 @@ struct SlippiRemotePadOutput
 	u8 playerIdx;
 	std::vector<u8> data;
 };
+#include "Common/Logging/Log.h"
 
 class SlippiPlayerSelections
 {
@@ -59,23 +60,32 @@ class SlippiPlayerSelections
 
 	void Merge(SlippiPlayerSelections &s)
 	{
-		this->rngOffset = s.rngOffset;
+		if(!this) return;
+        ERROR_LOG(SLIPPI, "SetMatchSelections:inside");
+        this->rngOffset = s.rngOffset;
+        ERROR_LOG(SLIPPI, "SetMatchSelections:inside:1");
 
 		if (s.isStageSelected)
 		{
+            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:2");
 			this->stageId = s.stageId;
 			this->isStageSelected = true;
+            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:3");
 
             this->areMatchRulesSet = s.areMatchRulesSet;
             this->matchRules = s.matchRules;
+            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:4");
 		}
 
+        ERROR_LOG(SLIPPI, "SetMatchSelections:inside:5");
 		if (s.isCharacterSelected)
 		{
+            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:6");
 			this->characterId = s.characterId;
 			this->characterColor = s.characterColor;
 			this->teamId = s.teamId;
 			this->isCharacterSelected = true;
+            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:7");
 		}
 
 

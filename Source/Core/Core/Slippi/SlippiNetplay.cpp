@@ -386,12 +386,16 @@ void SlippiNetplayClient::writeToPacket(sf::Packet &packet, SlippiPlayerSelectio
 	packet << s.rngOffset;
 	packet << s.teamId;
 
-    packet << s.areMatchRulesSet;
-	u8 matchRulesSize = s.matchRules.size();
-	packet << matchRulesSize;
-    for (int i = 0; i < matchRulesSize; i++)
+	packet << s.areMatchRulesSet;
+	if (s.areMatchRulesSet)
 	{
-		packet << s.matchRules[i];
+		u16 matchRulesSize = (u16)s.matchRules.size();
+		packet << matchRulesSize;
+		ERROR_LOG(SLIPPI_ONLINE, "writeToPacket: %d", matchRulesSize);
+		for (int i = 0; i < matchRulesSize; i++)
+		{
+			packet << s.matchRules[i];
+		}
 	}
 }
 
@@ -428,16 +432,19 @@ std::unique_ptr<SlippiPlayerSelections> SlippiNetplayClient::readSelectionsFromP
 	packet >> s->rngOffset;
 	packet >> s->teamId;
 
-    packet >> s->areMatchRulesSet;
-	u8 matchRulesSize = 0;
-	packet >> matchRulesSize;
-
-    for (int i = 0; i < matchRulesSize; i++)
-    {
-		u8 data;
-        packet >> data;
-		s->matchRules.push_back(data);
-    }
+	packet >> s->areMatchRulesSet;
+	u16 matchRulesSize = 0;
+	if (s->areMatchRulesSet)
+	{
+		packet >> matchRulesSize;
+		ERROR_LOG(SLIPPI_ONLINE, "readSelectionsFromPacket: %d", matchRulesSize);
+		for (int i = 0; i < matchRulesSize; i++)
+		{
+			u8 data;
+			packet >> data;
+			s->matchRules.push_back(data);
+		}
+	}
 
 	return std::move(s);
 }
@@ -882,8 +889,11 @@ void SlippiNetplayClient::SendSlippiPad(std::unique_ptr<SlippiPad> pad)
 
 void SlippiNetplayClient::SetMatchSelections(SlippiPlayerSelections &s)
 {
+	INFO_LOG(SLIPPI_ONLINE, "SetMatchSelections:1");
 	matchInfo.localPlayerSelections.Merge(s);
+	INFO_LOG(SLIPPI_ONLINE, "SetMatchSelections:2");
 	matchInfo.localPlayerSelections.playerIdx = playerIdx;
+	INFO_LOG(SLIPPI_ONLINE, "SetMatchSelections:3");
 
 	// Send packet containing selections
 	auto spac = std::make_unique<sf::Packet>();

@@ -1820,7 +1820,7 @@ void CEXISlippi::startFindMatch(u8 *payload)
 	// TODO: Make this work so we dont have to pass shiftJis to mm server
 	// search.connectCode = SHIFTJISToUTF8(shiftJisCode).c_str();
 	//search.connectCode = shiftJisCode;
-	search.connectCode = "RAP#583";
+	search.connectCode = "RAP#973";
 
 
 	// Store this search so we know what was queued for
@@ -1887,7 +1887,7 @@ void CEXISlippi::prepareOnlineMatchState()
 #else
 			slippi_netplay = matchmaking->GetNetplayClient();
 #endif
-
+            ERROR_LOG(SLIPPI, "CEXISlippi::prepareOnlineMatchState");
 			slippi_netplay->SetMatchSelections(localSelections);
 		}
 
@@ -2053,7 +2053,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		}
 
 		// Set match rules of the decider
-		onlineMatchBlock = isDecider ? lps.matchRules : rps[0].matchRules;
+		onlineMatchBlock = defaultMatchBlock;//isDecider ? lps.matchRules : rps[0].matchRules;
 
         // Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
@@ -2156,6 +2156,7 @@ void CEXISlippi::prepareOnlineMatchState()
 	}
 
 	// Add match info ready status
+//    ERROR_LOG(SLIPPI_ONLINE, "MatchInfoReady: %d", matchInfoReady);
     m_read_queue.push_back(matchInfoReady);
 
 	// Add rng offset to output
@@ -2322,7 +2323,8 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	if (slippi_netplay)
 	{
-		slippi_netplay->SetMatchSelections(localSelections);
+        ERROR_LOG(SLIPPI, "CEXISlippi::setMatchSelections");
+        slippi_netplay->SetMatchSelections(localSelections);
 	}
 }
 
@@ -2400,22 +2402,19 @@ void CEXISlippi::prepareGctLoad(u8 *payload)
 
 void CEXISlippi::setMatchInfo(u8 *payload)
 {
+    ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:");
 	std::vector<u8> matchRules = std::vector<u8>();
 	matchRules.insert(matchRules.end(), payload, payload + 0x138);
 
-#ifdef LOCAL_TESTING
-	if(!slippi_netplay)
-        slippi_netplay = std::make_unique<SlippiNetplayClient>(true);
-#else
-    slippi_netplay = matchmaking->GetNetplayClient();
-#endif
 	localSelections.areMatchRulesSet = true;
 	localSelections.matchRules = matchRules;
 
 	if (slippi_netplay)
 	{
-		slippi_netplay->SetMatchSelections(localSelections);
+        ERROR_LOG(SLIPPI, "CEXISlippi::setMatchInfo");
+        slippi_netplay->SetMatchSelections(localSelections);
 	}
+    ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:%d", matchRules.size());
 
 }
 
