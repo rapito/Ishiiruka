@@ -394,7 +394,8 @@ void SlippiNetplayClient::writeToPacket(sf::Packet &packet, SlippiPlayerSelectio
 		ERROR_LOG(SLIPPI_ONLINE, "writeToPacket: %d", matchRulesSize);
 		for (int i = 0; i < matchRulesSize; i++)
 		{
-			packet << s.matchRules[i];
+            ERROR_LOG(SLIPPI_ONLINE, "write i:%d data: %d", i, s.matchRules[i]);
+            packet << (u8)s.matchRules[i];
 		}
 	}
 }
@@ -442,6 +443,7 @@ std::unique_ptr<SlippiPlayerSelections> SlippiNetplayClient::readSelectionsFromP
 		{
 			u8 data;
 			packet >> data;
+            ERROR_LOG(SLIPPI_ONLINE, "read i:%d data: %d", i, data);
 			s->matchRules.push_back(data);
 		}
 	}

@@ -2053,7 +2053,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		}
 
 		// Set match rules of the decider
-		onlineMatchBlock = defaultMatchBlock;//isDecider ? lps.matchRules : rps[0].matchRules;
+		onlineMatchBlock = isDecider ? lps.matchRules : rps[0].matchRules;
 
         // Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
@@ -2153,10 +2153,12 @@ void CEXISlippi::prepareOnlineMatchState()
 		rightTeamPlayers.resize(4, 0);
 		leftTeamPlayers[3] = leftTeamSize;
 		rightTeamPlayers[3] = rightTeamSize;
-	}
+        ERROR_LOG(SLIPPI_ONLINE, "isDecider: %d", isDecider);
+
+    }
 
 	// Add match info ready status
-//    ERROR_LOG(SLIPPI_ONLINE, "MatchInfoReady: %d", matchInfoReady);
+    ERROR_LOG(SLIPPI_ONLINE, "MatchInfoReady: %d", matchInfoReady);
     m_read_queue.push_back(matchInfoReady);
 
 	// Add rng offset to output
