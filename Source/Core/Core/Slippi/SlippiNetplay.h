@@ -71,7 +71,10 @@ class SlippiPlayerSelections
 			this->stageId = s.stageId;
 			this->isStageSelected = true;
             ERROR_LOG(SLIPPI, "SetMatchSelections:inside:3");
+		}
 
+		if(s.areMatchRulesSet)
+        {
             this->areMatchRulesSet = s.areMatchRulesSet;
             this->matchRules = s.matchRules;
             ERROR_LOG(SLIPPI, "SetMatchSelections:inside:4");
