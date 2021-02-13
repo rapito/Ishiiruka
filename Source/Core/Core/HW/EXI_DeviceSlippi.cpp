@@ -40,7 +40,7 @@
 #define SLEEP_TIME_MS 8
 #define WRITE_FILE_SLEEP_TIME_MS 85
 
-#define LOCAL_TESTING
+//#define LOCAL_TESTING
 //#define CREATE_DIFF_FILES
 
 static std::unordered_map<u8, std::string> slippi_names;
@@ -2053,7 +2053,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		}
 
 		// Set match rules of the decider
-		onlineMatchBlock = isDecider ? lps.matchRules : rps[0].matchRules;
+		onlineMatchBlock = !isDecider && rps[0].areMatchRulesSet ? rps[0].matchRules : lps.matchRules ;
 
         // Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
