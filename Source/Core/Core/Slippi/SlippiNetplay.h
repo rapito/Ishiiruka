@@ -73,7 +73,7 @@ class SlippiPlayerSelections
             ERROR_LOG(SLIPPI, "SetMatchSelections:inside:3");
 		}
 
-		if(s.areMatchRulesSet)
+		//if(s.areMatchRulesSet)
         {
             this->areMatchRulesSet = s.areMatchRulesSet;
             this->matchRules = s.matchRules;
