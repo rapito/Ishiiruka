@@ -2060,7 +2060,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
 		for (u16 i = 0; i < (u16)0x138; i++)
 		{
-			if (i == 0xF || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 || i == 0x61 + 3 * 0x24)
+			if (i == 0xF || i==0xb4 || i==0xd8 || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 || i == 0x61 + 3 * 0x24)
 				continue;
 			if (i == 0x60 || i == 0x60+(1*0x24) || i == 0x60*(2*0x24) || i == 0x60*(3*0x24))
 				continue;
@@ -2077,6 +2077,7 @@ void CEXISlippi::prepareOnlineMatchState()
 				break;
 			}
 		}
+		isCustomRules = isCustomRules || defaultStagesBlock != stagesBlock;
 		#ifdef LOCAL_TESTING
 		if (!isDecider && rps[0].isMatchConfigSet)
 			stagesBlock = defaultStagesBlock;
