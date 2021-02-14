@@ -50,9 +50,10 @@ class SlippiPlayerSelections
 	bool isCharacterSelected = false;
 
 	u16 stageId = 0;
-    bool isStageSelected = false;
-    bool areMatchRulesSet = false;
-    std::vector<u8> matchRules;
+	bool isStageSelected = false;
+	u32 stagesBlock = 0xE70000B0; // default stages
+    bool isMatchConfigSet = false;
+	std::vector<u8> matchConfig;
 
 	u32 rngOffset = 0;
 
@@ -73,10 +74,12 @@ class SlippiPlayerSelections
             ERROR_LOG(SLIPPI, "SetMatchSelections:inside:3");
 		}
 
-		//if(s.areMatchRulesSet)
+		this->stagesBlock = s.stagesBlock;
+
+		//if(s.isMatchConfigSet)
         {
-            this->areMatchRulesSet = s.areMatchRulesSet;
-            this->matchRules = s.matchRules;
+            this->isMatchConfigSet = s.isMatchConfigSet;
+			this->matchConfig = s.matchConfig;
             ERROR_LOG(SLIPPI, "SetMatchSelections:inside:4");
 		}
 

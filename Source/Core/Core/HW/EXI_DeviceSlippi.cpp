@@ -1854,6 +1854,7 @@ void CEXISlippi::startFindMatch(u8 *payload)
 void CEXISlippi::prepareOnlineMatchState()
 {
 	std::vector<u8> onlineMatchBlock = defaultMatchBlock;
+	u32 stagesBlock = defaultStagesBlock; // Default stages
 
 	m_read_queue.clear();
 
@@ -1870,7 +1871,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
 	m_read_queue.push_back(mmState); // Matchmaking State
 
-	u8 matchInfoReady = 0;//localSelections.matchRules.empty() ? 0 : 1;
+	u8 matchInfoReady = 0;//localSelections.matchConfig.empty() ? 0 : 1;
 	u8 localPlayerReady = localSelections.isCharacterSelected;
 	u8 remotePlayersReady = 0;
 	u8 localPlayerIndex = matchmaking->LocalPlayerIndex();
@@ -2053,7 +2054,12 @@ void CEXISlippi::prepareOnlineMatchState()
 		}
 
 		// Set match rules of the decider
-		onlineMatchBlock = !isDecider && rps[0].areMatchRulesSet ? rps[0].matchRules : lps.matchRules ;
+		onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
+		stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
+		#ifdef LOCAL_TESTING
+		if (!isDecider && rps[0].isMatchConfigSet)
+			stagesBlock = defaultStagesBlock;
+		#endif
 
         // Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
@@ -2112,7 +2118,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		for (auto selections : orderedSelections)
 		{
 			// Check if all players already set their match info
-			if(!selections.areMatchRulesSet && !isDecider) {
+			if(!selections.isMatchConfigSet && !isDecider) {
 				// if there's at least one player that has not set their rules, then clear
 				matchInfoReady=0;
 			}
@@ -2233,6 +2239,9 @@ void CEXISlippi::prepareOnlineMatchState()
 		m_read_queue.insert(m_read_queue.end(), connectCode.begin(), connectCode.end());
 	}
 
+	// set stages block
+	appendWordToBuffer(&m_read_queue, stagesBlock);
+
 	// Add error message if there is one
 	auto errorStr = !forcedError.empty() ? forcedError : matchmaking->GetErrorMessage();
 	errorStr = ConvertStringForGame(errorStr, 120);
@@ -2280,6 +2289,8 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	s.stageId = Common::swap16(&payload[4]);
 	u8 stageSelectOption = payload[6];
+	s.stagesBlock = Common::swap32(&payload[7]);
+
 
 	s.isStageSelected = stageSelectOption == 1 || stageSelectOption == 3;
 	if (stageSelectOption == 3)
@@ -2298,28 +2309,28 @@ void CEXISlippi::setMatchSelections(u8 *payload)
         s.stageId = getRandomStage();
     }
 
-	u8 matchRulesOption = payload[6];
-	std::vector<u8> matchRules;
+	u8 matchConfigOption = payload[6];
+	std::vector<u8> matchConfig;
 
-	switch (matchRulesOption)
+	switch (matchConfigOption)
 	{
 	case 1:
-		matchRules = std::vector<u8>();
-		matchRules.insert(matchRules.end(), payload+7, payload+7 + 0x138);
+		matchConfig = std::vector<u8>();
+		matchConfig.insert(matchConfig.end(), payload+11, payload+11 + 0x138);
 		break;
 	case 2:
-		matchRules = RJJMatchBlock;
+		matchConfig = RJJMatchBlock;
 		break;
 	default:
-		matchRules = defaultMatchBlock;
+		matchConfig = defaultMatchBlock;
 		break;
 	}
 
 	// Set selected Ruleset
 
-	s.matchRules = matchRules;
-	s.matchRules = defaultMatchBlock;
-
+	s.matchConfig = matchConfig;
+	s.matchConfig = defaultMatchBlock;
+	
 	// Merge these selections
 	localSelections.Merge(s);
 
@@ -2405,18 +2416,18 @@ void CEXISlippi::prepareGctLoad(u8 *payload)
 void CEXISlippi::setMatchInfo(u8 *payload)
 {
     ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:");
-	std::vector<u8> matchRules = std::vector<u8>();
-	matchRules.insert(matchRules.end(), payload, payload + 0x138);
+	std::vector<u8> matchConfig = std::vector<u8>();
+	matchConfig.insert(matchConfig.end(), payload, payload + 0x138);
 
-	localSelections.areMatchRulesSet = true;
-	localSelections.matchRules = matchRules;
+	localSelections.isMatchConfigSet = true;
+	localSelections.matchConfig = matchConfig;
 
 	if (slippi_netplay)
 	{
         ERROR_LOG(SLIPPI, "CEXISlippi::setMatchInfo");
         slippi_netplay->SetMatchSelections(localSelections);
 	}
-    ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:%d", matchRules.size());
+    ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:%d", matchConfig.size());
 
 }
 
