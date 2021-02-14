@@ -40,7 +40,7 @@
 #define SLEEP_TIME_MS 8
 #define WRITE_FILE_SLEEP_TIME_MS 85
 
-//#define LOCAL_TESTING
+#define LOCAL_TESTING
 //#define CREATE_DIFF_FILES
 
 static std::unordered_map<u8, std::string> slippi_names;
@@ -1855,6 +1855,7 @@ void CEXISlippi::prepareOnlineMatchState()
 {
 	std::vector<u8> onlineMatchBlock = defaultMatchBlock;
 	u32 stagesBlock = defaultStagesBlock; // Default stages
+	bool isCustomRules = false; // default to false
 
 	m_read_queue.clear();
 
@@ -2056,6 +2057,26 @@ void CEXISlippi::prepareOnlineMatchState()
 		// Set match rules of the decider
 		onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
 		stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
+
+		for (u16 i = 0; i < (u16)0x138; i++)
+		{
+			if (i == 0xF || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 || i == 0x61 + 3 * 0x24)
+				continue;
+			if (i == 0x60 || i == 0x60+(1*0x24) || i == 0x60*(2*0x24) || i == 0x60*(3*0x24))
+				continue;
+			if (i == 0x63 || i == 0x63+(1*0x24) || i == 0x63*(2*0x24) || i == 0x63*(3*0x24))
+				continue;
+			if (i == 0x67 || i == 0x67+(1*0x24) || i == 0x67*(2*0x24) || i == 0x67*(3*0x24))
+				continue;
+			if (i == 0x69 || i == 0x69+(1*0x24) || i == 0x69*(2*0x24) || i == 0x69*(3*0x24))
+				continue;
+
+			if (i != 0xF && onlineMatchBlock[i] != defaultMatchBlock[i])
+			{
+				isCustomRules = true;
+				break;
+			}
+		}
 		#ifdef LOCAL_TESTING
 		if (!isDecider && rps[0].isMatchConfigSet)
 			stagesBlock = defaultStagesBlock;
@@ -2141,8 +2162,12 @@ void CEXISlippi::prepareOnlineMatchState()
 
 		// Turn pause on in direct, off in everything else
 		u8 *gameBitField3 = (u8 *)&onlineMatchBlock[2];
-		*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
-		//*gameBitField3 = *gameBitField3 | 0x8;
+		// Let custom rules do its thing with pause
+		if (!(isCustomRules && lastSearch.mode >= directMode))
+		{
+			*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
+		}
+
 
 		// Group players into left/right side for team splash screen display
 		for (int i = 0; i < 4; i++)
@@ -2239,7 +2264,11 @@ void CEXISlippi::prepareOnlineMatchState()
 		m_read_queue.insert(m_read_queue.end(), connectCode.begin(), connectCode.end());
 	}
 
-	// set stages block
+
+	// Add isCustomRules boolean
+	m_read_queue.push_back((bool)isCustomRules);
+
+	// Add stages block
 	appendWordToBuffer(&m_read_queue, stagesBlock);
 
 	// Add error message if there is one
