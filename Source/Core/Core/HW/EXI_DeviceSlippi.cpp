@@ -2333,8 +2333,9 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	s.characterId = payload[1];
 	s.characterColor = payload[2];
 	s.isCharacterSelected = payload[3];
+	s.areCustomRulesAllowed = SConfig::GetInstance().m_slippiEnableCustomRules;
 
-	s.stageId = Common::swap16(&payload[4]);
+    s.stageId = Common::swap16(&payload[4]);
 	u8 stageSelectOption = payload[6];
 	s.stagesBlock = Common::swap32(&payload[7]);
 
