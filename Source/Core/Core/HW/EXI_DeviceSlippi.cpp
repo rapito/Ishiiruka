@@ -1819,9 +1819,8 @@ void CEXISlippi::startFindMatch(u8 *payload)
 
 	// TODO: Make this work so we dont have to pass shiftJis to mm server
 	// search.connectCode = SHIFTJISToUTF8(shiftJisCode).c_str();
-	//search.connectCode = shiftJisCode;
+	// search.connectCode = shiftJisCode;
 	search.connectCode = "RAP#973";
-
 
 	// Store this search so we know what was queued for
 	lastSearch = search;
@@ -1855,7 +1854,7 @@ void CEXISlippi::prepareOnlineMatchState()
 {
 	std::vector<u8> onlineMatchBlock = defaultMatchBlock;
 	u32 stagesBlock = defaultStagesBlock; // Default stages
-	bool isCustomRules = false; // default to false
+	bool isCustomRules = false;           // default to false
 
 	m_read_queue.clear();
 
@@ -1872,7 +1871,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
 	m_read_queue.push_back(mmState); // Matchmaking State
 
-	u8 matchInfoReady = 0;//localSelections.matchConfig.empty() ? 0 : 1;
+	u8 matchInfoReady = 0; // localSelections.matchConfig.empty() ? 0 : 1;
 	u8 localPlayerReady = localSelections.isCharacterSelected;
 	u8 remotePlayersReady = 0;
 	u8 localPlayerIndex = matchmaking->LocalPlayerIndex();
@@ -1889,7 +1888,7 @@ void CEXISlippi::prepareOnlineMatchState()
 #else
 			slippi_netplay = matchmaking->GetNetplayClient();
 #endif
-            ERROR_LOG(SLIPPI, "CEXISlippi::prepareOnlineMatchState");
+			ERROR_LOG(SLIPPI, "CEXISlippi::prepareOnlineMatchState");
 			slippi_netplay->SetMatchSelections(localSelections);
 		}
 
@@ -1909,7 +1908,7 @@ void CEXISlippi::prepareOnlineMatchState()
 			{
 				if (!matchInfo->remotePlayerSelections[i].isCharacterSelected)
 				{
-					//NOTICE_LOG(SLIPPI_ONLINE, "[%d] Not ready", i);
+					// NOTICE_LOG(SLIPPI_ONLINE, "[%d] Not ready", i);
 					remotePlayersReady = 0;
 				}
 			}
@@ -1972,10 +1971,10 @@ void CEXISlippi::prepareOnlineMatchState()
 	oppName = p2Name = "Player 2";
 #endif
 
-	m_read_queue.push_back(localPlayerReady);  // Local player ready
+	m_read_queue.push_back(localPlayerReady);   // Local player ready
 	m_read_queue.push_back(remotePlayersReady); // Remote players ready
-	m_read_queue.push_back(localPlayerIndex);  // Local player index
-	m_read_queue.push_back(remotePlayerIndex); // Remote player index
+	m_read_queue.push_back(localPlayerIndex);   // Local player index
+	m_read_queue.push_back(remotePlayerIndex);  // Remote player index
 
 	// Set chat message if any
 	if (slippi_netplay)
@@ -1993,7 +1992,7 @@ void CEXISlippi::prepareOnlineMatchState()
 	std::vector<u8> leftTeamPlayers = {};
 	std::vector<u8> rightTeamPlayers = {};
 
-	//NOTICE_LOG(SLIPPI_ONLINE, "%d, %d", localPlayerReady, remotePlayersReady);
+	// NOTICE_LOG(SLIPPI_ONLINE, "%d, %d", localPlayerReady, remotePlayersReady);
 
 	if (localPlayerReady && remotePlayersReady)
 	{
@@ -2011,16 +2010,19 @@ void CEXISlippi::prepareOnlineMatchState()
 		// 2 BLUE TEAM Falco
 		for (int i = 0; i <= SLIPPI_REMOTE_PLAYER_MAX; i++)
 		{
-			if(i==0){
+			if (i == 0)
+			{
 				rps[i].characterColor = 1;
 				rps[i].teamId = 0;
-			}else {
+			}
+			else
+			{
 				rps[i].characterColor = 2;
 				rps[i].teamId = 1;
 			}
 
 			rps[i].characterId = 0x14;
-			rps[i].playerIdx = i+1;
+			rps[i].playerIdx = i + 1;
 			rps[i].isCharacterSelected = true;
 		}
 
@@ -2054,21 +2056,30 @@ void CEXISlippi::prepareOnlineMatchState()
 			return;
 		}
 
-		// Set match rules of the decider
-		onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
-		stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
+		// Set match rules of the decider if mode is direct or team
+		if (lastSearch.mode >= directMode)
+		{
+			onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
+			stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
+		}
+		else
+		{
+			onlineMatchBlock = defaultMatchBlock;
+			stagesBlock = defaultStagesBlock;
+		}
 
 		for (u16 i = 0; i < (u16)0x138; i++)
 		{
-			if (i == 0xF || i==0xb4 || i==0xd8 || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 || i == 0x61 + 3 * 0x24)
+			if (i == 0xF || i == 0xb4 || i == 0xd8 || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 ||
+			    i == 0x61 + 3 * 0x24)
 				continue;
-			if (i == 0x60 || i == 0x60+(1*0x24) || i == 0x60*(2*0x24) || i == 0x60*(3*0x24))
+			if (i == 0x60 || i == 0x60 + (1 * 0x24) || i == 0x60 * (2 * 0x24) || i == 0x60 * (3 * 0x24))
 				continue;
-			if (i == 0x63 || i == 0x63+(1*0x24) || i == 0x63*(2*0x24) || i == 0x63*(3*0x24))
+			if (i == 0x63 || i == 0x63 + (1 * 0x24) || i == 0x63 * (2 * 0x24) || i == 0x63 * (3 * 0x24))
 				continue;
-			if (i == 0x67 || i == 0x67+(1*0x24) || i == 0x67*(2*0x24) || i == 0x67*(3*0x24))
+			if (i == 0x67 || i == 0x67 + (1 * 0x24) || i == 0x67 * (2 * 0x24) || i == 0x67 * (3 * 0x24))
 				continue;
-			if (i == 0x69 || i == 0x69+(1*0x24) || i == 0x69*(2*0x24) || i == 0x69*(3*0x24))
+			if (i == 0x69 || i == 0x69 + (1 * 0x24) || i == 0x69 * (2 * 0x24) || i == 0x69 * (3 * 0x24))
 				continue;
 
 			if (i != 0xF && onlineMatchBlock[i] != defaultMatchBlock[i])
@@ -2078,12 +2089,12 @@ void CEXISlippi::prepareOnlineMatchState()
 			}
 		}
 		isCustomRules = isCustomRules || defaultStagesBlock != stagesBlock;
-		#ifdef LOCAL_TESTING
+#ifdef LOCAL_TESTING
 		if (!isDecider && rps[0].isMatchConfigSet)
 			stagesBlock = defaultStagesBlock;
-		#endif
+#endif
 
-        // Overwrite local player character
+		// Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
 		onlineMatchBlock[0x63 + (lps.playerIdx) * 0x24] = lps.characterColor;
 		onlineMatchBlock[0x67 + (lps.playerIdx) * 0x24] = 0;
@@ -2122,7 +2133,6 @@ void CEXISlippi::prepareOnlineMatchState()
 			// Set p3/p4 player type to human
 			onlineMatchBlock[0x61 + 2 * 0x24] = 0;
 			onlineMatchBlock[0x61 + 3 * 0x24] = 0;
-
 		}
 
 		// TODO: This is annoying, ideally remotePlayerSelections would just include everyone including the local player
@@ -2137,20 +2147,23 @@ void CEXISlippi::prepareOnlineMatchState()
 		// Overwrite stage information. Make sure everyone loads the same stage
 		u16 stageId = 0x1F; // Default to battlefield if there was no selection
 		matchInfoReady = 1;
-		for (auto selections : orderedSelections)
+		if (lastSearch.mode >= directMode)
 		{
-			// Check if all players already set their match info
-			if(!selections.isMatchConfigSet && !isDecider) {
-				// if there's at least one player that has not set their rules, then clear
-				matchInfoReady=0;
+			for (auto selections : orderedSelections)
+			{
+				// Check if all players already set their match info
+				if (!selections.isMatchConfigSet && !isDecider)
+				{
+					// if there's at least one player that has not set their rules, then clear
+					matchInfoReady = 0;
+				}
+
+				if (!selections.isStageSelected) continue;
+
+				// Stage selected by this player, use that selection
+				stageId = selections.stageId;
+				break;
 			}
-
-			if (!selections.isStageSelected)
-				continue;
-
-			// Stage selected by this player, use that selection
-			stageId = selections.stageId;
-			break;
 		}
 
 		u16 *stage = (u16 *)&onlineMatchBlock[0xE];
@@ -2169,7 +2182,6 @@ void CEXISlippi::prepareOnlineMatchState()
 			*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
 		}
 
-
 		// Group players into left/right side for team splash screen display
 		for (int i = 0; i < 4; i++)
 		{
@@ -2185,13 +2197,12 @@ void CEXISlippi::prepareOnlineMatchState()
 		rightTeamPlayers.resize(4, 0);
 		leftTeamPlayers[3] = leftTeamSize;
 		rightTeamPlayers[3] = rightTeamSize;
-        ERROR_LOG(SLIPPI_ONLINE, "isDecider: %d", isDecider);
-
-    }
+		ERROR_LOG(SLIPPI_ONLINE, "isDecider: %d", isDecider);
+	}
 
 	// Add match info ready status
-    ERROR_LOG(SLIPPI_ONLINE, "MatchInfoReady: %d", matchInfoReady);
-    m_read_queue.push_back(matchInfoReady);
+	ERROR_LOG(SLIPPI_ONLINE, "MatchInfoReady: %d", matchInfoReady);
+	m_read_queue.push_back(matchInfoReady);
 
 	// Add rng offset to output
 	appendWordToBuffer(&m_read_queue, rngOffset);
@@ -2265,7 +2276,6 @@ void CEXISlippi::prepareOnlineMatchState()
 		m_read_queue.insert(m_read_queue.end(), connectCode.begin(), connectCode.end());
 	}
 
-
 	// Add isCustomRules boolean
 	m_read_queue.push_back((bool)isCustomRules);
 
@@ -2321,7 +2331,6 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	u8 stageSelectOption = payload[6];
 	s.stagesBlock = Common::swap32(&payload[7]);
 
-
 	s.isStageSelected = stageSelectOption == 1 || stageSelectOption == 3;
 	if (stageSelectOption == 3)
 	{
@@ -2334,10 +2343,10 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	s.rngOffset = generator() % 0xFFFF;
 
 	if (matchmaking->LocalPlayerIndex() == 1 && firstMatch)
-    {
-        firstMatch = false;
-        s.stageId = getRandomStage();
-    }
+	{
+		firstMatch = false;
+		s.stageId = getRandomStage();
+	}
 
 	u8 matchConfigOption = payload[6];
 	std::vector<u8> matchConfig;
@@ -2346,7 +2355,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	{
 	case 1:
 		matchConfig = std::vector<u8>();
-		matchConfig.insert(matchConfig.end(), payload+11, payload+11 + 0x138);
+		matchConfig.insert(matchConfig.end(), payload + 11, payload + 11 + 0x138);
 		break;
 	case 2:
 		matchConfig = RJJMatchBlock;
@@ -2360,14 +2369,14 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	s.matchConfig = matchConfig;
 	s.matchConfig = defaultMatchBlock;
-	
+
 	// Merge these selections
 	localSelections.Merge(s);
 
 	if (slippi_netplay)
 	{
-        ERROR_LOG(SLIPPI, "CEXISlippi::setMatchSelections");
-        slippi_netplay->SetMatchSelections(localSelections);
+		ERROR_LOG(SLIPPI, "CEXISlippi::setMatchSelections");
+		slippi_netplay->SetMatchSelections(localSelections);
 	}
 }
 
@@ -2423,29 +2432,30 @@ void CEXISlippi::prepareGctLoad(u8 *payload)
 	// This is the address where the codes will be written to
 	auto address = Common::swap32(&payload[0]);
 
-	//for (size_t i = 0, e = gct.size(); i < e; ++i)
+	// for (size_t i = 0, e = gct.size(); i < e; ++i)
 	//	PowerPC::HostWrite_U8(gct[i], (u32)(address + i));
 
 	// Overwrite the instructions which load address pointing to codeset
 	PowerPC::HostWrite_U32(0x3DE00000 | (address >> 16), 0x80001f58); // lis r15, 0xXXXX # top half of address
-	PowerPC::HostWrite_U32(0x61EF0000 | (address & 0xFFFF), 0x80001f5C); // ori r15, r15, 0xXXXX # bottom half of address
+	PowerPC::HostWrite_U32(0x61EF0000 | (address & 0xFFFF),
+	                       0x80001f5C);              // ori r15, r15, 0xXXXX # bottom half of address
 	PowerPC::ppcState.iCache.Invalidate(0x80001f58); // This should invalidate both instructions
 
 	// Invalidate the codes
-	//for (unsigned int k = address; k < address + gct.size(); k += 32)
+	// for (unsigned int k = address; k < address + gct.size(); k += 32)
 	//	PowerPC::ppcState.iCache.Invalidate(k);
 
 	INFO_LOG(SLIPPI, "Preparing to write gecko codes at: 0x%X. %X, %X", address, 0x3DE00000 | (address >> 16),
-	          0x61EF0000 | (address & 0xFFFF));
+	         0x61EF0000 | (address & 0xFFFF));
 
-	//PatchEngine::ApplyFramePatches();
+	// PatchEngine::ApplyFramePatches();
 
 	m_read_queue.insert(m_read_queue.end(), gct.begin(), gct.end());
 }
 
 void CEXISlippi::setMatchInfo(u8 *payload)
 {
-    ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:");
+	ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:");
 	std::vector<u8> matchConfig = std::vector<u8>();
 	matchConfig.insert(matchConfig.end(), payload, payload + 0x138);
 
@@ -2454,11 +2464,10 @@ void CEXISlippi::setMatchInfo(u8 *payload)
 
 	if (slippi_netplay)
 	{
-        ERROR_LOG(SLIPPI, "CEXISlippi::setMatchInfo");
-        slippi_netplay->SetMatchSelections(localSelections);
+		ERROR_LOG(SLIPPI, "CEXISlippi::setMatchInfo");
+		slippi_netplay->SetMatchSelections(localSelections);
 	}
-    ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:%d", matchConfig.size());
-
+	ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:%d", matchConfig.size());
 }
 
 void CEXISlippi::handleChatMessage(u8 *payload)
