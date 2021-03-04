@@ -891,15 +891,11 @@ void SlippiNetplayClient::SendSlippiPad(std::unique_ptr<SlippiPad> pad)
 
 void SlippiNetplayClient::SetMatchSelections(SlippiPlayerSelections &s)
 {
-	INFO_LOG(SLIPPI_ONLINE, "SetMatchSelections:1");
 	matchInfo.localPlayerSelections.Merge(s);
-	INFO_LOG(SLIPPI_ONLINE, "SetMatchSelections:2");
 	matchInfo.localPlayerSelections.playerIdx = playerIdx;
-	INFO_LOG(SLIPPI_ONLINE, "SetMatchSelections:3");
 
 	// Send packet containing selections
 	auto spac = std::make_unique<sf::Packet>();
-	INFO_LOG(SLIPPI_ONLINE, "Setting match selections for %d", playerIdx);
 	writeToPacket(*spac, matchInfo.localPlayerSelections);
 	SendAsync(std::move(spac));
 }

@@ -1819,9 +1819,7 @@ void CEXISlippi::startFindMatch(u8 *payload)
 
 	// TODO: Make this work so we dont have to pass shiftJis to mm server
 	// search.connectCode = SHIFTJISToUTF8(shiftJisCode).c_str();
-	// search.connectCode = shiftJisCode;
-	search.connectCode = "RAP#973";
-
+	search.connectCode = shiftJisCode;
 	// Store this search so we know what was queued for
 	lastSearch = search;
 
@@ -2147,27 +2145,18 @@ void CEXISlippi::prepareOnlineMatchState()
 		// Overwrite stage information. Make sure everyone loads the same stage
 		u16 stageId = 0x1F; // Default to battlefield if there was no selection
 		matchInfoReady = 1;
-		if (lastSearch.mode >= directMode)
+		for (auto selections : orderedSelections)
 		{
-			for (auto selections : orderedSelections)
+			if (lastSearch.mode >= directMode && allowCustomRules && selections.areCustomRulesAllowed)
 			{
 				// Check if all players already set their match info
-				if (!selections.isMatchConfigSet && !isDecider && allowCustomRules)
+				if (!selections.isMatchConfigSet && !isDecider)
 				{
 					// if there's at least one player that has not set their rules, then clear
 					matchInfoReady = 0;
 				}
-				else if (!selections.areCustomRulesAllowed)
-				{
-					matchInfoReady = 1;
-					allowCustomRules = false;
-					break;
-				}
 			}
-		}
 
-		for (auto selections : orderedSelections)
-		{
 			if (!selections.isStageSelected)
 				continue;
 			// Stage selected by this player, use that selection
@@ -2335,7 +2324,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	s.isCharacterSelected = payload[3];
 	s.areCustomRulesAllowed = SConfig::GetInstance().m_slippiEnableCustomRules;
 
-    s.stageId = Common::swap16(&payload[4]);
+	s.stageId = Common::swap16(&payload[4]);
 	u8 stageSelectOption = payload[6];
 	s.stagesBlock = Common::swap32(&payload[7]);
 
@@ -2373,9 +2362,6 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 		break;
 	}
 
-	// Set selected Ruleset
-
-	s.matchConfig = matchConfig;
 	s.matchConfig = defaultMatchBlock;
 
 	// Merge these selections
@@ -2779,6 +2765,7 @@ void CEXISlippi::DMAWrite(u32 _uAddr, u32 _uSize)
 			prepareGctLoad(&memPtr[bufLoc + 1]);
 			break;
 		case CMD_SET_MATCH_INFO:
+			INFO_LOG(SLIPPI_ONLINE, "BEFORE SET MATCH INFO");
 			setMatchInfo(&memPtr[bufLoc + 1]);
 			break;
 		default:
