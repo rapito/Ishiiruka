@@ -52,7 +52,8 @@ class SlippiPlayerSelections
 	u16 stageId = 0;
 	bool isStageSelected = false;
 	u32 stagesBlock = 0xE70000B0; // default stages
-    bool isMatchConfigSet = false;
+	bool isMatchConfigSet = false;
+	bool areCustomRulesAllowed = true;
 	std::vector<u8> matchConfig;
 
 	u32 rngOffset = 0;
@@ -61,40 +62,28 @@ class SlippiPlayerSelections
 
 	void Merge(SlippiPlayerSelections &s)
 	{
-		if(!this) return;
-        ERROR_LOG(SLIPPI, "SetMatchSelections:inside");
-        this->rngOffset = s.rngOffset;
-        ERROR_LOG(SLIPPI, "SetMatchSelections:inside:1");
+		if (!this)
+			return;
+		this->rngOffset = s.rngOffset;
 
 		if (s.isStageSelected)
 		{
-            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:2");
 			this->stageId = s.stageId;
 			this->isStageSelected = true;
-            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:3");
 		}
 
 		this->stagesBlock = s.stagesBlock;
+		this->isMatchConfigSet = s.isMatchConfigSet;
+		this->areCustomRulesAllowed = s.areCustomRulesAllowed;
+		this->matchConfig = s.matchConfig;
 
-		//if(s.isMatchConfigSet)
-        {
-            this->isMatchConfigSet = s.isMatchConfigSet;
-			this->matchConfig = s.matchConfig;
-            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:4");
-		}
-
-        ERROR_LOG(SLIPPI, "SetMatchSelections:inside:5");
 		if (s.isCharacterSelected)
 		{
-            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:6");
 			this->characterId = s.characterId;
 			this->characterColor = s.characterColor;
 			this->teamId = s.teamId;
 			this->isCharacterSelected = true;
-            ERROR_LOG(SLIPPI, "SetMatchSelections:inside:7");
 		}
-
-
 	}
 
 	void Reset()

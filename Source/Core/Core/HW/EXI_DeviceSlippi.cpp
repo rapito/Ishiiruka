@@ -1855,6 +1855,7 @@ void CEXISlippi::prepareOnlineMatchState()
 	std::vector<u8> onlineMatchBlock = defaultMatchBlock;
 	u32 stagesBlock = defaultStagesBlock; // Default stages
 	bool isCustomRules = false;           // default to false
+	bool allowCustomRules = SConfig::GetInstance().m_slippiEnableCustomRules;
 
 	m_read_queue.clear();
 
@@ -1888,7 +1889,6 @@ void CEXISlippi::prepareOnlineMatchState()
 #else
 			slippi_netplay = matchmaking->GetNetplayClient();
 #endif
-			ERROR_LOG(SLIPPI, "CEXISlippi::prepareOnlineMatchState");
 			slippi_netplay->SetMatchSelections(localSelections);
 		}
 
@@ -2057,7 +2057,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		}
 
 		// Set match rules of the decider if mode is direct or team
-		if (lastSearch.mode >= directMode)
+		if (lastSearch.mode >= directMode && allowCustomRules)
 		{
 			onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
 			stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
@@ -2152,18 +2152,27 @@ void CEXISlippi::prepareOnlineMatchState()
 			for (auto selections : orderedSelections)
 			{
 				// Check if all players already set their match info
-				if (!selections.isMatchConfigSet && !isDecider)
+				if (!selections.isMatchConfigSet && !isDecider && allowCustomRules)
 				{
 					// if there's at least one player that has not set their rules, then clear
 					matchInfoReady = 0;
 				}
-
-				if (!selections.isStageSelected) continue;
-
-				// Stage selected by this player, use that selection
-				stageId = selections.stageId;
-				break;
+				else if (!selections.areCustomRulesAllowed)
+				{
+					matchInfoReady = 1;
+					allowCustomRules = false;
+					break;
+				}
 			}
+		}
+
+		for (auto selections : orderedSelections)
+		{
+			if (!selections.isStageSelected)
+				continue;
+			// Stage selected by this player, use that selection
+			stageId = selections.stageId;
+			break;
 		}
 
 		u16 *stage = (u16 *)&onlineMatchBlock[0xE];
@@ -2177,7 +2186,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		// Turn pause on in direct, off in everything else
 		u8 *gameBitField3 = (u8 *)&onlineMatchBlock[2];
 		// Let custom rules do its thing with pause
-		if (!(isCustomRules && lastSearch.mode >= directMode))
+		if (!(isCustomRules && lastSearch.mode >= directMode && allowCustomRules))
 		{
 			*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
 		}
@@ -2197,11 +2206,9 @@ void CEXISlippi::prepareOnlineMatchState()
 		rightTeamPlayers.resize(4, 0);
 		leftTeamPlayers[3] = leftTeamSize;
 		rightTeamPlayers[3] = rightTeamSize;
-		ERROR_LOG(SLIPPI_ONLINE, "isDecider: %d", isDecider);
 	}
 
 	// Add match info ready status
-	ERROR_LOG(SLIPPI_ONLINE, "MatchInfoReady: %d", matchInfoReady);
 	m_read_queue.push_back(matchInfoReady);
 
 	// Add rng offset to output
@@ -2375,7 +2382,6 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	if (slippi_netplay)
 	{
-		ERROR_LOG(SLIPPI, "CEXISlippi::setMatchSelections");
 		slippi_netplay->SetMatchSelections(localSelections);
 	}
 }
@@ -2455,7 +2461,6 @@ void CEXISlippi::prepareGctLoad(u8 *payload)
 
 void CEXISlippi::setMatchInfo(u8 *payload)
 {
-	ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:");
 	std::vector<u8> matchConfig = std::vector<u8>();
 	matchConfig.insert(matchConfig.end(), payload, payload + 0x138);
 
@@ -2464,10 +2469,8 @@ void CEXISlippi::setMatchInfo(u8 *payload)
 
 	if (slippi_netplay)
 	{
-		ERROR_LOG(SLIPPI, "CEXISlippi::setMatchInfo");
 		slippi_netplay->SetMatchSelections(localSelections);
 	}
-	ERROR_LOG(SLIPPI_ONLINE, "setMatchInfo:%d", matchConfig.size());
 }
 
 void CEXISlippi::handleChatMessage(u8 *payload)

@@ -387,6 +387,7 @@ void SlippiNetplayClient::writeToPacket(sf::Packet &packet, SlippiPlayerSelectio
 	packet << s.teamId;
 
 	packet << s.stagesBlock;
+	packet << s.areCustomRulesAllowed;
 	packet << s.isMatchConfigSet;
 	if (s.isMatchConfigSet)
 	{
@@ -394,7 +395,7 @@ void SlippiNetplayClient::writeToPacket(sf::Packet &packet, SlippiPlayerSelectio
 		packet << matchConfigSize;
 		for (int i = 0; i < matchConfigSize; i++)
 		{
-            packet << (u8)s.matchConfig[i];
+			packet << (u8)s.matchConfig[i];
 		}
 	}
 }
@@ -433,6 +434,7 @@ std::unique_ptr<SlippiPlayerSelections> SlippiNetplayClient::readSelectionsFromP
 	packet >> s->teamId;
 
 	packet >> s->stagesBlock;
+	packet >> s->areCustomRulesAllowed;
 	packet >> s->isMatchConfigSet;
 	u16 matchConfigSize = 0;
 	if (s->isMatchConfigSet)
@@ -444,7 +446,6 @@ std::unique_ptr<SlippiPlayerSelections> SlippiNetplayClient::readSelectionsFromP
 			packet >> data;
 			s->matchConfig.push_back(data);
 		}
-
 	}
 
 	return std::move(s);

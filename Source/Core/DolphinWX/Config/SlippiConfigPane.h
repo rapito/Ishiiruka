@@ -21,25 +21,26 @@ class wxTextCtrl;
 
 class SlippiConfigPane final : public wxPanel
 {
-public:
-	SlippiConfigPane(wxWindow* parent, wxWindowID id);
+  public:
+	SlippiConfigPane(wxWindow *parent, wxWindowID id);
 
-private:
+  private:
 	void InitializeGUI();
 	void LoadGUIValues();
 	void BindEvents();
 
-	void OnReplaySavingToggle(wxCommandEvent& event);
-	void OnReplayMonthFoldersToggle(wxCommandEvent& event);
-	void OnReplayDirChanged(wxCommandEvent& event);
+	void OnReplaySavingToggle(wxCommandEvent &event);
+	void OnReplayMonthFoldersToggle(wxCommandEvent &event);
+	void OnReplayDirChanged(wxCommandEvent &event);
 	void OnDelayFramesChanged(wxCommandEvent &event);
-	void OnQuickChatToggle(wxCommandEvent& event);
+	void OnQuickChatToggle(wxCommandEvent &event);
+	void OnCustomRulesToggle(wxCommandEvent &event);
 
-	wxCheckBox* m_replay_enable_checkbox;
-	wxDirPickerCtrl* m_replay_directory_picker;
-	wxCheckBox* m_replay_month_folders_checkbox;
-	wxStaticText* m_slippi_delay_frames_txt;
+	wxCheckBox *m_replay_enable_checkbox;
+	wxDirPickerCtrl *m_replay_directory_picker;
+	wxCheckBox *m_replay_month_folders_checkbox;
+	wxStaticText *m_slippi_delay_frames_txt;
 	wxSpinCtrl *m_slippi_delay_frames_ctrl;
-	wxCheckBox* m_slippi_enable_quick_chat;
-
+	wxCheckBox *m_slippi_enable_quick_chat;
+	wxCheckBox *m_slippi_enable_custom_rules;
 };
