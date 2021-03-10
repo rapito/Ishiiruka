@@ -41,7 +41,7 @@
 #define SLEEP_TIME_MS 8
 #define WRITE_FILE_SLEEP_TIME_MS 85
 
-//#define LOCAL_TESTING
+#define LOCAL_TESTING
 //#define CREATE_DIFF_FILES
 
 static std::unordered_map<u8, std::string> slippi_names;
@@ -1861,26 +1861,10 @@ void CEXISlippi::prepareOnlineMatchState()
 {
 	// This match block is a VS match with P1 Red Falco vs P2 Red Bowser vs P3 Young Link vs P4 Young Link
 	// on Battlefield. The proper values will be overwritten
-	static std::vector<u8> onlineMatchBlock = {
-	    0x32, 0x01, 0x86, 0x4C, 0xC3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x6E, 0x00, 0x1F, 0x00, 0x00,
-	    0x01, 0xE0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-	    0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x14, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00, 0x78, 0x00,
-	    0xC0, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x05, 0x00, 0x04, 0x01, 0x00, 0x01, 0x00, 0x00, 0x09, 0x00, 0x78, 0x00,
-	    0xC0, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x15, 0x03, 0x04, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x09, 0x00, 0x78, 0x00,
-	    0xC0, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x15, 0x03, 0x04, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x09, 0x00, 0x78, 0x00,
-	    0xC0, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x21, 0x03, 0x04, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x09, 0x00, 0x78, 0x00,
-	    0x40, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x21, 0x03, 0x04, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x09, 0x00, 0x78, 0x00,
-	    0x40, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80,
-	    0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-	};
+	static std::vector<u8> onlineMatchBlock = defaultMatchBlock;
+	u32 stagesBlock = defaultStagesBlock; // Default stages
+	bool isCustomRules = false;           // default to false
+	bool allowCustomRules = SConfig::GetInstance().m_slippiEnableCustomRules;
 
 	m_read_queue.clear();
 
@@ -1897,6 +1881,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
 	m_read_queue.push_back(mmState); // Matchmaking State
 
+	u8 matchInfoReady = 1;
 	u8 localPlayerReady = localSelections.isCharacterSelected;
 	u8 remotePlayersReady = 0;
 	u8 localPlayerIndex = matchmaking->LocalPlayerIndex();
@@ -2053,6 +2038,10 @@ void CEXISlippi::prepareOnlineMatchState()
 			rps[i].characterId = 0x14;
 			rps[i].playerIdx = i+1;
 			rps[i].isCharacterSelected = true;
+			rps[i].isMatchConfigSet = true;
+			rps[i].matchConfig = defaultMatchBlock;
+			rps[i].areCustomRulesAllowed = true;
+			rps[i].stagesBlock = defaultStagesBlock;
 		}
 
 		if (lastSearch.mode == SlippiMatchmaking::OnlinePlayMode::TEAMS)
@@ -2084,6 +2073,46 @@ void CEXISlippi::prepareOnlineMatchState()
 			prepareOnlineMatchState();
 			return;
 		}
+
+		// Check if is a custom rules match or not
+		// Set match rules of the decider if mode is direct or team
+		if (lastSearch.mode >= directMode && allowCustomRules && localSelections.isMatchConfigSet)
+		{
+			onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
+			stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
+#ifdef LOCAL_TESTING
+            onlineMatchBlock = lps.matchConfig;
+            stagesBlock = lps.stagesBlock;
+#endif
+		} else {
+			onlineMatchBlock = defaultMatchBlock;
+			stagesBlock = defaultStagesBlock;
+		}
+
+		// This is an stupid attempt to check if match info is not the default ruleset
+		// TODO: Basically this should just compare the important bits of the match struct fields
+		for (u16 i = 0; i < (u16)0x138; i++)
+		{
+			// Just me ignoring random stuff
+			if (i == 0xF || i == 0xb4 || i == 0xd8 || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 ||
+			    i == 0x61 + 3 * 0x24)
+				continue;
+			if (i == 0x60 || i == 0x60 + (1 * 0x24) || i == 0x60 * (2 * 0x24) || i == 0x60 * (3 * 0x24))
+				continue;
+			if (i == 0x63 || i == 0x63 + (1 * 0x24) || i == 0x63 * (2 * 0x24) || i == 0x63 * (3 * 0x24))
+				continue;
+			if (i == 0x67 || i == 0x67 + (1 * 0x24) || i == 0x67 * (2 * 0x24) || i == 0x67 * (3 * 0x24))
+				continue;
+			if (i == 0x69 || i == 0x69 + (1 * 0x24) || i == 0x69 * (2 * 0x24) || i == 0x69 * (3 * 0x24))
+				continue;
+
+			if (i != 0xF && onlineMatchBlock[i] != defaultMatchBlock[i])
+			{
+				isCustomRules = true;
+				break;
+			}
+		}
+		isCustomRules = isCustomRules || defaultStagesBlock != stagesBlock;
 
 		// Overwrite local player character
 		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
@@ -2139,6 +2168,15 @@ void CEXISlippi::prepareOnlineMatchState()
 		u16 stageId = 0x1F; // Default to battlefield if there was no selection
 		for (auto selections : orderedSelections)
 		{
+			bool shouldCheckForCustomRules = lastSearch.mode >= directMode && allowCustomRules && selections.areCustomRulesAllowed;
+			// Check if all players already set their match info
+			if (shouldCheckForCustomRules && (!selections.isMatchConfigSet && !isDecider))
+			{
+				// if there's at least one player that has not set their rules,
+				// then set match info as not ready
+				matchInfoReady = 0;
+			}
+
 			if (!selections.isStageSelected)
 				continue;
 
@@ -2155,11 +2193,13 @@ void CEXISlippi::prepareOnlineMatchState()
 		WARN_LOG(SLIPPI_ONLINE, "Rng Offset: 0x%x", rngOffset);
 		WARN_LOG(SLIPPI_ONLINE, "P1 Char: 0x%X, P2 Char: 0x%X", onlineMatchBlock[0x60], onlineMatchBlock[0x84]);
 
-		// Turn pause on in direct, off in everything else
+		// Turn pause on in direct, off in everything else.
+		// if custom rules available, use those then.
 		u8 *gameBitField3 = (u8 *)&onlineMatchBlock[2];
-		*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
-		//*gameBitField3 = *gameBitField3 | 0x8;
-
+		if (!(isCustomRules && lastSearch.mode >= directMode && allowCustomRules))
+		{
+			*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
+		}
 		// Group players into left/right side for team splash screen display
 		for (int i = 0; i < 4; i++)
 		{
@@ -2176,6 +2216,15 @@ void CEXISlippi::prepareOnlineMatchState()
 		leftTeamPlayers[3] = leftTeamSize;
 		rightTeamPlayers[3] = rightTeamSize;
 	}
+
+	// Add match info ready status
+	m_read_queue.push_back(matchInfoReady);
+
+	// Add isCustomRules boolean
+	m_read_queue.push_back((bool)isCustomRules);
+
+	// Add random stages block
+	appendWordToBuffer(&m_read_queue, stagesBlock);
 
 	// Add rng offset to output
 	appendWordToBuffer(&m_read_queue, rngOffset);
@@ -2293,9 +2342,14 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	s.characterId = payload[1];
 	s.characterColor = payload[2];
 	s.isCharacterSelected = payload[3];
+	s.areCustomRulesAllowed = SConfig::GetInstance().m_slippiEnableCustomRules;
 
 	s.stageId = Common::swap16(&payload[4]);
 	u8 stageSelectOption = payload[6];
+	s.stagesBlock = Common::swap32(&payload[7]);
+    // Ensure match selections are the default ones when they are set the first time
+	s.isMatchConfigSet = false;
+	s.matchConfig = defaultMatchBlock;
 
 	s.isStageSelected = stageSelectOption == 1 || stageSelectOption == 3;
 	if (stageSelectOption == 3)
@@ -2310,6 +2364,23 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	// Merge these selections
 	localSelections.Merge(s);
+
+	if (slippi_netplay)
+	{
+		slippi_netplay->SetMatchSelections(localSelections);
+	}
+}
+
+void CEXISlippi::setMatchInfo(u8 *payload)
+{
+	std::vector<u8> matchConfig = std::vector<u8>();
+	matchConfig.insert(matchConfig.end(), payload, payload + 0x138);
+
+	localSelections.isMatchConfigSet = true;
+	localSelections.matchConfig = matchConfig;
+	for(int i=0;i<0x138;i++) {
+        ERROR_LOG(SLIPPI, "SMI: 0x%X", matchConfig[i]);
+    }
 
 	if (slippi_netplay)
 	{
@@ -2723,6 +2794,8 @@ void CEXISlippi::DMAWrite(u32 _uAddr, u32 _uSize)
 			break;
 		case CMD_SET_MATCH_SELECTIONS:
 			setMatchSelections(&memPtr[bufLoc + 1]);
+		case CMD_SET_MATCH_INFO:
+			setMatchInfo(&memPtr[bufLoc + 1]);
 			break;
 		case CMD_FILE_LENGTH:
 			prepareFileLength(&memPtr[bufLoc + 1]);

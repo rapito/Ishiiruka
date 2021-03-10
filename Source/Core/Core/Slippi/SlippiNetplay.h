@@ -52,10 +52,14 @@ class SlippiPlayerSelections
 	bool isStageSelected = false;
 
 	u32 rngOffset = 0;
+	int messageId = 0;
 
-	int messageId;
+    u32 stagesBlock = 0xE70000B0; // default stages
+    bool isMatchConfigSet = false;
+    bool areCustomRulesAllowed = true;
+    std::vector<u8> matchConfig;
 
-	void Merge(SlippiPlayerSelections &s)
+    void Merge(SlippiPlayerSelections &s)
 	{
 		this->rngOffset = s.rngOffset;
 
@@ -65,7 +69,12 @@ class SlippiPlayerSelections
 			this->isStageSelected = true;
 		}
 
-		if (s.isCharacterSelected)
+        this->stagesBlock = s.stagesBlock;
+        this->isMatchConfigSet = s.isMatchConfigSet;
+        this->areCustomRulesAllowed = s.areCustomRulesAllowed;
+        this->matchConfig = s.matchConfig;
+
+        if (s.isCharacterSelected)
 		{
 			this->characterId = s.characterId;
 			this->characterColor = s.characterColor;

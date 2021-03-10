@@ -71,6 +71,8 @@ void SlippiConfigPane::InitializeGUI()
 	m_slippi_enable_quick_chat->SetToolTip(
 		_("Enable this to send and receive Quick Chat Messages when online."));
 
+	m_slippi_enable_custom_rules = new wxCheckBox(this, wxID_ANY, _("Enable Custom Rules"));
+	m_slippi_enable_custom_rules->SetToolTip(_("Enable this to play Custom Rules on some Online Modes"));
 
 #endif
 	const int space5 = FromDIP(5);
@@ -96,6 +98,7 @@ void SlippiConfigPane::InitializeGUI()
 	sSlippiOnlineSettings->Add(m_slippi_delay_frames_txt, wxGBPosition(0, 0), wxDefaultSpan, wxALIGN_CENTER_VERTICAL);
 	sSlippiOnlineSettings->Add(m_slippi_delay_frames_ctrl, wxGBPosition(0, 1), wxDefaultSpan, wxALIGN_LEFT);
 	sSlippiOnlineSettings->Add(m_slippi_enable_quick_chat, wxGBPosition(1, 0), wxDefaultSpan, wxALIGN_LEFT);
+	sSlippiOnlineSettings->Add(m_slippi_enable_custom_rules, wxGBPosition(2, 0), wxDefaultSpan, wxALIGN_LEFT);
 
 	wxStaticBoxSizer* const sbSlippiOnlineSettings =
 		new wxStaticBoxSizer(wxVERTICAL, this, _("Slippi Online Settings"));
@@ -135,6 +138,7 @@ void SlippiConfigPane::LoadGUIValues()
 
 	m_slippi_delay_frames_ctrl->SetValue(startup_params.m_slippiOnlineDelay);
 	m_slippi_enable_quick_chat->SetValue(startup_params.m_slippiEnableQuickChat);
+	m_slippi_enable_custom_rules->SetValue(startup_params.m_slippiEnableCustomRules);
 #endif
 }
 
@@ -150,6 +154,7 @@ void SlippiConfigPane::BindEvents()
 
 	m_slippi_delay_frames_ctrl->Bind(wxEVT_SPINCTRL, &SlippiConfigPane::OnDelayFramesChanged, this);
 	m_slippi_enable_quick_chat->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnQuickChatToggle, this);
+	m_slippi_enable_custom_rules->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnCustomRulesToggle, this);
 #endif
 }
 
@@ -157,6 +162,12 @@ void SlippiConfigPane::OnQuickChatToggle(wxCommandEvent& event)
 {
 	bool enableQuickChat = m_slippi_enable_quick_chat->IsChecked();
 	SConfig::GetInstance().m_slippiEnableQuickChat = enableQuickChat;
+}
+
+void SlippiConfigPane::OnCustomRulesToggle(wxCommandEvent &event)
+{
+	bool enableCustomRules = m_slippi_enable_custom_rules->IsChecked();
+	SConfig::GetInstance().m_slippiEnableCustomRules = enableCustomRules;
 }
 
 void SlippiConfigPane::OnReplaySavingToggle(wxCommandEvent& event)
