@@ -135,6 +135,8 @@ CEXISlippi::CEXISlippi()
 	gameFileLoader = std::make_unique<SlippiGameFileLoader>();
 	gameReporter = std::make_unique<SlippiGameReporter>(user.get());
 	g_replayComm = std::make_unique<SlippiReplayComm>();
+	directCodes = std::make_unique<SlippiDirectCodes>("direct-codes.json");
+	teamsCodes = std::make_unique<SlippiDirectCodes>("teams-codes.json");
 
 	generator = std::default_random_engine(Common::Timer::GetTimeMs());
 
@@ -153,6 +155,16 @@ CEXISlippi::CEXISlippi()
 #ifndef IS_PLAYBACK
 	user->ListenForLogIn();
 #endif
+
+	// Use sane stage defaults (should get overwritten)
+	allowedStages = {
+	    0x2,  // FoD
+	    0x3,  // Pokemon
+	    0x8,  // Yoshi's Story
+	    0x1C, // Dream Land
+	    0x1F, // Battlefield
+	    0x20, // Final Destination
+	};
 
 #ifdef CREATE_DIFF_FILES
 	// MnMaAll.usd
@@ -240,6 +252,10 @@ CEXISlippi::CEXISlippi()
 	// File::WriteStringToFile(stateString,
 	//                        "C:\\Users\\Jas\\Documents\\Melee\\Textures\\Slippi\\MainMenu\\MnMaAll-restored.usd");
 #endif
+
+	//    auto spt = SlippiPremadeText();
+	//    spt.GetPremadeTextData(SlippiPremadeText::SPT_CHAT_P1, "Rapito", "Test");
+	//    spt.GetPremadeTextData(SlippiPremadeText::SPT_CHAT_P1, "ラピト", "Test");
 }
 
 CEXISlippi::~CEXISlippi()
@@ -1037,6 +1053,10 @@ void CEXISlippi::prepareGeckoList()
 	    {0x800055f8, true}, // Common/GetIsFollower.asm
 	    {0x800055fc, true}, // Common/Gecko/ProcessCodeList.asm
 	    {0x8016d294, true}, // Common/IncrementFrameIndex.asm
+	    {0x80376a24, true}, // Common/UseInGameDelay/ApplyInGameDelay.asm
+	    {0x8016e9b0, true}, // Common/UseInGameDelay/InitializeInGameDelay.asm
+	    {0x8000561c, true}, // Common/GetCommonMinorID/GetCommonMinorID.asm
+	    {0x802f666c, true}, // Common/UseInGameDelay/InitializeInGameDelay.asm v2
 
 	    {0x801a5b14, true}, // External/Salty Runback/Salty Runback.asm
 	    {0x801a4570, true}, // External/LagReduction/ForceHD/480pDeflickerOff.asm
@@ -1521,7 +1541,6 @@ bool CEXISlippi::isDisconnected()
 	return status != SlippiNetplayClient::SlippiConnectStatus::NET_CONNECT_STATUS_CONNECTED;
 }
 
-static int tempTestCount = 0;
 void CEXISlippi::handleOnlineInputs(u8 *payload)
 {
 	m_read_queue.clear();
@@ -1545,12 +1564,12 @@ void CEXISlippi::handleOnlineInputs(u8 *payload)
 
 		// Reset character selections as they are no longer needed
 		localSelections.Reset();
-		slippi_netplay->StartSlippiGame();
+		if (slippi_netplay)
+			slippi_netplay->StartSlippiGame();
 	}
 
 	if (isDisconnected())
 	{
-		auto status = slippi_netplay->GetSlippiConnectStatus();
 		m_read_queue.push_back(3); // Indicate we disconnected
 		return;
 	}
@@ -1611,7 +1630,7 @@ bool CEXISlippi::shouldSkipOnlineFrame(s32 frame)
 	if (isTimeSyncFrame == 0 && !isCurrentlySkipping)
 	{
 		auto offsetUs = slippi_netplay->CalcTimeOffsetUs();
-		INFO_LOG(SLIPPI_ONLINE, "[Frame %d] Offset is: %d us", frame, offsetUs);
+		//INFO_LOG(SLIPPI_ONLINE, "[Frame %d] Offset is: %d us", frame, offsetUs);
 
 		// TODO: figure out a better solution here for doubles?
 		if (offsetUs > 10000)
@@ -1686,7 +1705,7 @@ void CEXISlippi::prepareOpponentInputs(u8 *payload)
 
 	std::unique_ptr<SlippiRemotePadOutput> results[SLIPPI_REMOTE_PLAYER_MAX];
 	int offset[SLIPPI_REMOTE_PLAYER_MAX];
-	INFO_LOG(SLIPPI_ONLINE, "Preparing pad data for frame %d", frame);
+	//INFO_LOG(SLIPPI_ONLINE, "Preparing pad data for frame %d", frame);
 
 	// Get pad data for each remote player and write each of their latest frame nums to the buf
 	for (int i = 0; i < remotePlayerCount; i++)
@@ -1771,8 +1790,8 @@ void CEXISlippi::handleCaptureSavestate(u8 *payload)
 	activeSavestates[frame] = std::move(ss);
 
 	u32 timeDiff = (u32)(Common::Timer::GetTimeUs() - startTime);
-	INFO_LOG(SLIPPI_ONLINE, "SLIPPI ONLINE: Captured savestate for frame %d in: %f ms", frame,
-	         ((double)timeDiff) / 1000);
+	//INFO_LOG(SLIPPI_ONLINE, "SLIPPI ONLINE: Captured savestate for frame %d in: %f ms", frame,
+	//         ((double)timeDiff) / 1000);
 }
 
 void CEXISlippi::handleLoadSavestate(u8 *payload)
@@ -1813,7 +1832,7 @@ void CEXISlippi::handleLoadSavestate(u8 *payload)
 	activeSavestates.clear();
 
 	u32 timeDiff = (u32)(Common::Timer::GetTimeUs() - startTime);
-	INFO_LOG(SLIPPI_ONLINE, "SLIPPI ONLINE: Loaded savestate for frame %d in: %f ms", frame, ((double)timeDiff) / 1000);
+	//INFO_LOG(SLIPPI_ONLINE, "SLIPPI ONLINE: Loaded savestate for frame %d in: %f ms", frame, ((double)timeDiff) / 1000);
 }
 
 void CEXISlippi::startFindMatch(u8 *payload)
@@ -1825,6 +1844,20 @@ void CEXISlippi::startFindMatch(u8 *payload)
 	shiftJisCode.insert(shiftJisCode.begin(), &payload[1], &payload[1] + 18);
 	shiftJisCode.erase(std::find(shiftJisCode.begin(), shiftJisCode.end(), 0x00), shiftJisCode.end());
 
+	// Log the direct code to file.
+	if (search.mode == SlippiMatchmaking::DIRECT)
+	{
+		// Make sure to convert to UTF8, otherwise json library will fail when
+		// calling dump().
+		std::string utf8Code = SHIFTJISToUTF8(shiftJisCode);
+		directCodes->AddOrUpdateCode(utf8Code);
+	}
+	else if (search.mode == SlippiMatchmaking::TEAMS)
+	{
+		std::string utf8Code = SHIFTJISToUTF8(shiftJisCode);
+		teamsCodes->AddOrUpdateCode(utf8Code);
+	}
+
 	// TODO: Make this work so we dont have to pass shiftJis to mm server
 	// search.connectCode = SHIFTJISToUTF8(shiftJisCode).c_str();
 	search.connectCode = shiftJisCode;
@@ -1835,11 +1868,22 @@ void CEXISlippi::startFindMatch(u8 *payload)
 	// While we do have another condition that checks characters after being connected, it's nice to give
 	// someone an early error before they even queue so that they wont enter the queue and make someone
 	// else get force removed from queue and have to requeue
-	auto directMode = SlippiMatchmaking::OnlinePlayMode::DIRECT;
-	if (search.mode < directMode && localSelections.characterId >= 26)
+	if (SlippiMatchmaking::IsFixedRulesMode(search.mode))
 	{
-		forcedError = "The character you selected is not allowed in this mode";
-		return;
+		// Character check
+		if (localSelections.characterId >= 26)
+		{
+			forcedError = "The character you selected is not allowed in this mode";
+			return;
+		}
+
+		// Stage check
+		if (localSelections.isStageSelected &&
+		    std::find(allowedStages.begin(), allowedStages.end(), localSelections.stageId) == allowedStages.end())
+		{
+			forcedError = "The stage being requested is not allowed in this mode";
+			return;
+		}
 	}
 
 #ifndef LOCAL_TESTING
@@ -1855,6 +1899,123 @@ void CEXISlippi::startFindMatch(u8 *payload)
 
 	matchmaking->FindMatch(search);
 #endif
+}
+
+
+bool CEXISlippi::doesTagMatchInput(u8 *input, u8 inputLen, std::string tag)
+{
+	auto jisTag = UTF8ToSHIFTJIS(tag);
+
+	// Check if this tag matches what has been input so far
+	bool isMatch = true;
+	for (int i = 0; i < inputLen; i++)
+	{
+		//ERROR_LOG(SLIPPI_ONLINE, "Entered: %X%X. History: %X%X", input[i * 3], input[i * 3 + 1], (u8)jisTag[i * 2],
+		//          (u8)jisTag[i * 2 + 1]);
+		if (input[i * 3] != (u8)jisTag[i * 2] || input[i * 3 + 1] != (u8)jisTag[i * 2 + 1])
+		{
+			isMatch = false;
+			break;
+		}
+	}
+
+	return isMatch;
+}
+
+void CEXISlippi::handleNameEntryLoad(u8 *payload)
+{
+	u8 inputLen = payload[24];
+	u32 initialIndex = payload[25] << 24 | payload[26] << 16 | payload[27] << 8 | payload[28];
+	u8 scrollDirection = payload[29];
+	u8 curMode = payload[30];
+
+	auto codeHistory = directCodes.get();
+	if (curMode == SlippiMatchmaking::TEAMS)
+	{
+		codeHistory = teamsCodes.get();
+	}
+
+	// Adjust index
+	u32 curIndex = initialIndex;
+	if (scrollDirection == 1)
+	{
+		curIndex++;
+	}
+	else if (scrollDirection == 2)
+	{
+		curIndex = curIndex > 0 ? curIndex - 1 : curIndex;
+	}
+	else if (scrollDirection == 3)
+	{
+		curIndex = 0;
+	}
+
+	// Scroll to next tag that
+	std::string tagAtIndex = "1";
+	while (curIndex >= 0 && curIndex < (u32)codeHistory->length())
+	{
+		tagAtIndex = codeHistory->get(curIndex);
+
+		// Break if we have found a tag that matches
+		if (doesTagMatchInput(payload, inputLen, tagAtIndex))
+			break;
+
+		curIndex = scrollDirection == 2 ? curIndex - 1 : curIndex + 1;
+	}
+
+	INFO_LOG(SLIPPI_ONLINE, "Idx: %d, InitIdx: %d, Scroll: %d. Len: %d", curIndex, initialIndex, scrollDirection,
+	          inputLen);
+
+	tagAtIndex = codeHistory->get(curIndex);
+	if (tagAtIndex == "1")
+	{
+		// If we failed to find a tag at the current index, try the initial index again.
+		// If the initial index matches the filter, preserve that suggestion. Without
+		// this logic, the suggestion would get cleared
+		auto initialTag = codeHistory->get(initialIndex);
+		if (doesTagMatchInput(payload, inputLen, initialTag))
+		{
+			tagAtIndex = initialTag;
+			curIndex = initialIndex;
+		}
+	}
+
+	INFO_LOG(SLIPPI_ONLINE, "Retrieved tag: %s", tagAtIndex.c_str());
+	std::string jisCode;
+	m_read_queue.clear();
+
+	if (tagAtIndex == "1")
+	{
+		m_read_queue.push_back(0);
+		m_read_queue.insert(m_read_queue.end(), payload, payload + 3 * inputLen);
+		m_read_queue.insert(m_read_queue.end(), 3 * (8 - inputLen), 0);
+		m_read_queue.push_back(inputLen);
+		appendWordToBuffer(&m_read_queue, initialIndex);
+		return;
+	}
+
+	// Indicate we have a suggestion
+	m_read_queue.push_back(1);
+
+	// Convert to tag to shift jis and write to response
+	jisCode = UTF8ToSHIFTJIS(tagAtIndex);
+
+	// Write out connect code into buffer, injection null terminator after each letter
+	for (int i = 0; i < 8; i++)
+	{
+		for (int j = i * 2; j < i * 2 + 2; j++)
+		{
+			m_read_queue.push_back(j < jisCode.length() ? jisCode[j] : 0);
+		}
+
+		m_read_queue.push_back(0x0);
+	}
+
+	INFO_LOG(SLIPPI_ONLINE, "New Idx: %d. Jis Code length: %d", curIndex, (u8)(jisCode.length() / 2));
+
+	// Write length of tag
+	m_read_queue.push_back(jisCode.length() / 2);
+	appendWordToBuffer(&m_read_queue, curIndex);
 }
 
 void CEXISlippi::prepareOnlineMatchState()
@@ -1884,13 +2045,13 @@ void CEXISlippi::prepareOnlineMatchState()
 	u8 matchInfoReady = 1;
 	u8 localPlayerReady = localSelections.isCharacterSelected;
 	u8 remotePlayersReady = 0;
-	u8 localPlayerIndex = matchmaking->LocalPlayerIndex();
-	u8 remotePlayerIndex = 1;
 
 	auto userInfo = user->GetUserInfo();
 
 	if (mmState == SlippiMatchmaking::ProcessState::CONNECTION_SUCCESS)
 	{
+		localPlayerIndex = matchmaking->LocalPlayerIndex();
+
 		if (!slippi_netplay)
 		{
 #ifdef LOCAL_TESTING
@@ -1899,6 +2060,24 @@ void CEXISlippi::prepareOnlineMatchState()
 			slippi_netplay = matchmaking->GetNetplayClient();
 #endif
 
+			// This happens on the initial connection to a player. Let's now grab the allowed stages
+			// returned to us from the matchmaking service and pick a new random stage before sending
+			// the selections to the opponent
+			allowedStages = matchmaking->GetStages();
+			if (allowedStages.empty())
+			{
+				allowedStages = {
+				    0x2,  // FoD
+				    0x3,  // Pokemon
+				    0x8,  // Yoshi's Story
+				    0x1C, // Dream Land
+				    0x1F, // Battlefield
+				    0x20, // Final Destination
+				};
+			}
+
+			stagePool.clear(); // Clear stage pool so that when we call getRandomStage it will use full list
+			localSelections.stageId = getRandomStage();
 			slippi_netplay->SetMatchSelections(localSelections);
 		}
 
@@ -1989,22 +2168,34 @@ void CEXISlippi::prepareOnlineMatchState()
 	// Set chat message if any
 	if (slippi_netplay)
 	{
-		auto remoteMessageSelection = slippi_netplay->GetSlippiRemoteChatMessage();
-		chatMessageId = remoteMessageSelection.messageId;
-		chatMessagePlayerIdx = remoteMessageSelection.playerIdx;
+		auto isSingleMode = matchmaking && matchmaking->RemotePlayerCount() == 1;
 		sentChatMessageId = slippi_netplay->GetSlippiRemoteSentChatMessage();
-		// If connection is 1v1 set index 0 for local and 1 for remote
-		if ((matchmaking && matchmaking->RemotePlayerCount() == 1) || !matchmaking)
+
+		// Prevent processing a message in the same frame
+		if (sentChatMessageId <= 0)
+		{
+			auto remoteMessageSelection = slippi_netplay->GetSlippiRemoteChatMessage();
+			chatMessageId = remoteMessageSelection.messageId;
+			chatMessagePlayerIdx = remoteMessageSelection.playerIdx;
+			if (chatMessageId == SlippiPremadeText::CHAT_MSG_CHAT_DISABLED && !isSingleMode)
+			{
+				// Clear remote chat messages if we are on teams and the player has chat disabled.
+				// Could also be handled on SlippiNetplay if the instance had acccess to the current connection mode
+				chatMessageId = chatMessagePlayerIdx = 0;
+			}
+		}
+		else
+		{
+			chatMessagePlayerIdx = localPlayerIndex;
+		}
+
+		if (isSingleMode || !matchmaking)
 		{
 			chatMessagePlayerIdx = sentChatMessageId > 0 ? localPlayerIndex : remotePlayerIndex;
 		}
 		// in CSS p1 is always current player and p2 is opponent
 		localPlayerName = p1Name = userInfo.displayName;
-		INFO_LOG(SLIPPI, "chatMessagePlayerIdx %d %d", chatMessagePlayerIdx,
-		         matchmaking ? matchmaking->RemotePlayerCount() : 0);
 	}
-
-	auto directMode = SlippiMatchmaking::OnlinePlayMode::DIRECT;
 
 	std::vector<u8> leftTeamPlayers = {};
 	std::vector<u8> rightTeamPlayers = {};
@@ -2027,16 +2218,19 @@ void CEXISlippi::prepareOnlineMatchState()
 		// 2 BLUE TEAM Falco
 		for (int i = 0; i <= SLIPPI_REMOTE_PLAYER_MAX; i++)
 		{
-			if(i==0){
+			if (i == 0)
+			{
 				rps[i].characterColor = 1;
 				rps[i].teamId = 0;
-			}else {
+			}
+			else
+			{
 				rps[i].characterColor = 2;
 				rps[i].teamId = 1;
 			}
 
 			rps[i].characterId = 0x14;
-			rps[i].playerIdx = i+1;
+			rps[i].playerIdx = i + 1;
 			rps[i].isCharacterSelected = true;
 			rps[i].isMatchConfigSet = true;
 			rps[i].matchConfig = defaultMatchBlock;
@@ -2062,71 +2256,134 @@ void CEXISlippi::prepareOnlineMatchState()
 				remoteCharOk = false;
 		}
 
-		// TODO: Check to make sure that in unranked/ranked the opponent hasn't picked a dumb stage
-
-		if (lastSearch.mode < directMode && (!localCharOk || !remoteCharOk))
+		// TODO: This is annoying, ideally remotePlayerSelections would just include everyone including the local player
+		// TODO: Would also simplify some logic in the Netplay class
+		std::vector<SlippiPlayerSelections> orderedSelections(4);
+		orderedSelections[lps.playerIdx] = lps;
+		for (int i = 0; i < remotePlayerCount; i++)
 		{
-			// If we get here, someone is doing something bad, clear the lobby
-			handleConnectionCleanup();
-			if (!localCharOk)
-				forcedError = "The character you selected is not allowed in this mode";
-			prepareOnlineMatchState();
-			return;
+			orderedSelections[rps[i].playerIdx] = rps[i];
 		}
 
-		// Check if is a custom rules match or not
-		// Set match rules of the decider if mode is direct or team
-		if (lastSearch.mode >= directMode && allowCustomRules && localSelections.isMatchConfigSet)
+		// Overwrite stage information. Make sure everyone loads the same stage
+		u16 stageId = 0x1F; // Default to battlefield if there was no selection
+		for (auto selections : orderedSelections)
 		{
-			onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
-			stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
+			if (!selections.isStageSelected)
+				continue;
+
+			// Stage selected by this player, use that selection
+			stageId = selections.stageId;
+			break;
+		}
+
+		if (SlippiMatchmaking::IsFixedRulesMode(lastSearch.mode))
+		{
+			// If we enter one of these conditions, someone is doing something bad, clear the lobby
+
+			if (!localCharOk)
+			{
+				handleConnectionCleanup();
+				forcedError = "The character you selected is not allowed in this mode";
+				prepareOnlineMatchState();
+				return;
+			}
+
+			if (!remoteCharOk)
+			{
+				handleConnectionCleanup();
+				prepareOnlineMatchState();
+				return;
+			}
+
+			if (std::find(allowedStages.begin(), allowedStages.end(), stageId) == allowedStages.end())
+			{
+				handleConnectionCleanup();
+				prepareOnlineMatchState();
+				return;
+			}
+		}
+
+        // Check if is a custom rules match or not
+        // Set match rules of the decider if mode is direct or team
+        if (lastSearch.mode >= directMode && allowCustomRules && localSelections.isMatchConfigSet)
+        {
+            onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
+            stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
 #ifdef LOCAL_TESTING
             onlineMatchBlock = lps.matchConfig;
             stagesBlock = lps.stagesBlock;
 #endif
-		} else {
-			onlineMatchBlock = defaultMatchBlock;
-			stagesBlock = defaultStagesBlock;
-		}
+        } else {
+            onlineMatchBlock = defaultMatchBlock;
+            stagesBlock = defaultStagesBlock;
+        }
 
-		// This is an stupid attempt to check if match info is not the default ruleset
-		// TODO: Basically this should just compare the important bits of the match struct fields
-		for (u16 i = 0; i < (u16)0x138; i++)
+        // This is an stupid attempt to check if match info is not the default ruleset
+        // TODO: Basically this should just compare the important bits of the match struct fields
+        for (u16 i = 0; i < (u16)0x138; i++)
+        {
+            // Just me ignoring random stuff
+            if (i == 0xF || i == 0xb4 || i == 0xd8 || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 ||
+                i == 0x61 + 3 * 0x24)
+                continue;
+            if (i == 0x60 || i == 0x60 + (1 * 0x24) || i == 0x60 * (2 * 0x24) || i == 0x60 * (3 * 0x24))
+                continue;
+            if (i == 0x63 || i == 0x63 + (1 * 0x24) || i == 0x63 * (2 * 0x24) || i == 0x63 * (3 * 0x24))
+                continue;
+            if (i == 0x67 || i == 0x67 + (1 * 0x24) || i == 0x67 * (2 * 0x24) || i == 0x67 * (3 * 0x24))
+                continue;
+            if (i == 0x69 || i == 0x69 + (1 * 0x24) || i == 0x69 * (2 * 0x24) || i == 0x69 * (3 * 0x24))
+                continue;
+
+            if (i != 0xF && onlineMatchBlock[i] != defaultMatchBlock[i])
+            {
+                isCustomRules = true;
+                break;
+            }
+        }
+
+		// Set rng offset
+		rngOffset = isDecider ? lps.rngOffset : rps[0].rngOffset;
+		INFO_LOG(SLIPPI_ONLINE, "Rng Offset: 0x%x", rngOffset);
+
+		// Check if everyone is the same color
+		auto color = orderedSelections[0].teamId;
+		bool areAllSameTeam = true;
+		for (const auto &s : orderedSelections)
 		{
-			// Just me ignoring random stuff
-			if (i == 0xF || i == 0xb4 || i == 0xd8 || i == 0x8 || i == 0x2 || i == 0x61 + 2 * 0x24 ||
-			    i == 0x61 + 3 * 0x24)
-				continue;
-			if (i == 0x60 || i == 0x60 + (1 * 0x24) || i == 0x60 * (2 * 0x24) || i == 0x60 * (3 * 0x24))
-				continue;
-			if (i == 0x63 || i == 0x63 + (1 * 0x24) || i == 0x63 * (2 * 0x24) || i == 0x63 * (3 * 0x24))
-				continue;
-			if (i == 0x67 || i == 0x67 + (1 * 0x24) || i == 0x67 * (2 * 0x24) || i == 0x67 * (3 * 0x24))
-				continue;
-			if (i == 0x69 || i == 0x69 + (1 * 0x24) || i == 0x69 * (2 * 0x24) || i == 0x69 * (3 * 0x24))
-				continue;
-
-			if (i != 0xF && onlineMatchBlock[i] != defaultMatchBlock[i])
+			if (s.teamId != color)
 			{
-				isCustomRules = true;
-				break;
+				areAllSameTeam = false;
 			}
 		}
-		isCustomRules = isCustomRules || defaultStagesBlock != stagesBlock;
 
-		// Overwrite local player character
-		onlineMatchBlock[0x60 + (lps.playerIdx) * 0x24] = lps.characterId;
-		onlineMatchBlock[0x63 + (lps.playerIdx) * 0x24] = lps.characterColor;
-		onlineMatchBlock[0x67 + (lps.playerIdx) * 0x24] = 0;
-		onlineMatchBlock[0x69 + (lps.playerIdx) * 0x24] = lps.teamId;
+		// Randomize assignments to randomize teams when all same color
+		std::vector<u8> teamAssignments = {0, 0, 1, 1};
+		std::srand(rngOffset);
+		std::random_shuffle(teamAssignments.begin(), teamAssignments.end());
 
-		// Overwrite remote player character
-		for (int i = 0; i < remotePlayerCount; i++)
+		// Overwrite player character choices
+		for (auto &s : orderedSelections)
 		{
-			u8 idx = rps[i].playerIdx;
-			onlineMatchBlock[0x60 + idx * 0x24] = rps[i].characterId;
-			onlineMatchBlock[0x63 + idx * 0x24] = rps[i].characterColor;
-			onlineMatchBlock[0x69 + idx * 0x24] = rps[i].teamId;
+			if (!s.isCharacterSelected)
+			{
+				continue;
+			}
+
+			if (areAllSameTeam)
+			{
+				// Overwrite teamId. Color is overwritten by ASM
+				s.teamId = teamAssignments[s.playerIdx];
+			}
+
+			//ERROR_LOG(SLIPPI_ONLINE, "idx: %d, char: %d", s.playerIdx, s.characterId);
+
+			// Overwrite player character
+			onlineMatchBlock[0x60 + (s.playerIdx) * 0x24] = s.characterId;
+			onlineMatchBlock[0x63 + (s.playerIdx) * 0x24] = s.characterColor;
+			onlineMatchBlock[0x67 + (s.playerIdx) * 0x24] = 0;
+			onlineMatchBlock[0x69 + (s.playerIdx) * 0x24] = s.teamId;
 		}
 
 		// Handle Singles/Teams specific logic
@@ -2155,51 +2412,36 @@ void CEXISlippi::prepareOnlineMatchState()
 			onlineMatchBlock[0x61 + 3 * 0x24] = 0;
 		}
 
-		// TODO: This is annoying, ideally remotePlayerSelections would just include everyone including the local player
-		// TODO: Would also simplify some logic in the Netplay class
-		std::vector<SlippiPlayerSelections> orderedSelections(4);
-		orderedSelections[lps.playerIdx] = lps;
-		for (int i = 0; i < remotePlayerCount; i++)
-		{
-			orderedSelections[rps[i].playerIdx] = rps[i];
-		}
+        for (auto selections : orderedSelections)
+        {
+			// TODO: use proper mode check
+            bool shouldCheckForCustomRules = lastSearch.mode >= directMode && allowCustomRules && selections.areCustomRulesAllowed;
+            // Check if all players already set their match info
+            if (shouldCheckForCustomRules && (!selections.isMatchConfigSet && !isDecider))
+            {
+                // if there's at least one player that has not set their rules,
+                // then set match info as not ready
+                matchInfoReady = 0;
+            }
 
-		// Overwrite stage information. Make sure everyone loads the same stage
-		u16 stageId = 0x1F; // Default to battlefield if there was no selection
-		for (auto selections : orderedSelections)
-		{
-			bool shouldCheckForCustomRules = lastSearch.mode >= directMode && allowCustomRules && selections.areCustomRulesAllowed;
-			// Check if all players already set their match info
-			if (shouldCheckForCustomRules && (!selections.isMatchConfigSet && !isDecider))
-			{
-				// if there's at least one player that has not set their rules,
-				// then set match info as not ready
-				matchInfoReady = 0;
-			}
+            if (!selections.isStageSelected)
+                continue;
 
-			if (!selections.isStageSelected)
-				continue;
-
-			// Stage selected by this player, use that selection
-			stageId = selections.stageId;
-			break;
-		}
+            break;
+        }
 
 		u16 *stage = (u16 *)&onlineMatchBlock[0xE];
 		*stage = Common::swap16(stageId);
 
-		// Set rng offset
-		rngOffset = isDecider ? lps.rngOffset : rps[0].rngOffset;
-		WARN_LOG(SLIPPI_ONLINE, "Rng Offset: 0x%x", rngOffset);
-		WARN_LOG(SLIPPI_ONLINE, "P1 Char: 0x%X, P2 Char: 0x%X", onlineMatchBlock[0x60], onlineMatchBlock[0x84]);
-
-		// Turn pause on in direct, off in everything else.
-		// if custom rules available, use those then.
+		// Turn pause off in unranked/ranked, on in other modes
+		// TODO: use proper check for modes
 		u8 *gameBitField3 = (u8 *)&onlineMatchBlock[2];
-		if (!(isCustomRules && lastSearch.mode >= directMode && allowCustomRules))
-		{
-			*gameBitField3 = lastSearch.mode >= directMode ? *gameBitField3 & 0xF7 : *gameBitField3 | 0x8;
+        if (!(isCustomRules && lastSearch.mode >= directMode && allowCustomRules))
+        {
+		    *gameBitField3 = SlippiMatchmaking::IsFixedRulesMode(lastSearch.mode) ? *gameBitField3 | 0x8 : *gameBitField3 & 0xF7;
 		}
+		//*gameBitField3 = *gameBitField3 | 0x8;
+
 		// Group players into left/right side for team splash screen display
 		for (int i = 0; i < 4; i++)
 		{
@@ -2311,18 +2553,11 @@ u16 CEXISlippi::getRandomStage()
 {
 	static u16 selectedStage;
 
-	static std::vector<u16> stages = {
-	    // 0x2,  // FoD
-	    0x3,  // Pokemon
-	    0x8,  // Yoshi's Story
-	    0x1C, // Dream Land
-	    0x1F, // Battlefield
-	    0x20, // Final Destination
-	};
-
 	// Reset stage pool if it's empty
 	if (stagePool.empty())
-		stagePool.insert(stagePool.end(), stages.begin(), stages.end());
+	{
+		stagePool.insert(stagePool.end(), allowedStages.begin(), allowedStages.end());
+	}
 
 	// Get random stage
 	int randIndex = generator() % stagePool.size();
@@ -2346,6 +2581,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 
 	s.stageId = Common::swap16(&payload[4]);
 	u8 stageSelectOption = payload[6];
+	u8 onlineMode = payload[7];
 	s.stagesBlock = Common::swap32(&payload[7]);
     // Ensure match selections are the default ones when they are set the first time
 	s.isMatchConfigSet = false;
@@ -2445,7 +2681,8 @@ void CEXISlippi::prepareGctLoad(u8 *payload)
 
 	// Overwrite the instructions which load address pointing to codeset
 	PowerPC::HostWrite_U32(0x3DE00000 | (address >> 16), 0x80001f58); // lis r15, 0xXXXX # top half of address
-	PowerPC::HostWrite_U32(0x61EF0000 | (address & 0xFFFF), 0x80001f5C); // ori r15, r15, 0xXXXX # bottom half of address
+	PowerPC::HostWrite_U32(0x61EF0000 | (address & 0xFFFF),
+	                       0x80001f5C);              // ori r15, r15, 0xXXXX # bottom half of address
 	PowerPC::ppcState.iCache.Invalidate(0x80001f58); // This should invalidate both instructions
 
 	// Invalidate the codes
@@ -2466,6 +2703,8 @@ std::vector<u8> CEXISlippi::loadPremadeText(u8 *payload)
 	std::vector<u8> premadeTextData;
 	auto spt = SlippiPremadeText();
 
+	//WARN_LOG(SLIPPI, "SLIPPI premade text texture id: 0x%x", payload[0]);
+
 	if (textId >= SlippiPremadeText::SPT_CHAT_P1 && textId <= SlippiPremadeText::SPT_CHAT_P4)
 	{
 		auto port = textId - 1;
@@ -2477,20 +2716,35 @@ std::vector<u8> CEXISlippi::loadPremadeText(u8 *payload)
 		playerName = defaultNames[port];
 #endif
 
-		u8 paramId = payload[1] == 0x83 ? 0x88 : payload[1]; // TODO: Figure out what the hell is going on and fix this
+		//WARN_LOG(SLIPPI, "SLIPPI premade text param: 0x%x", payload[1]);
+		u8 paramId = payload[1];
+		// Clear out any non supported characters (TODO: do this in a loop with more unsupported characters)
+		playerName = ReplaceAll(playerName.c_str(), "`", "");
+		playerName = ReplaceAll(playerName.c_str(), "\\", "");
 
-		//		INFO_LOG(SLIPPI, "SLIPPI premade param 0x%x", paramId);
-		//		INFO_LOG(SLIPPI, "SLIPPI premade name 0x%x", textId);
+		playerName = ReplaceAll(playerName.c_str(), "<", "\\"); // Replace any opening tags with "\" for now
+		playerName = ReplaceAll(playerName.c_str(), ">", "`"); // Replace any closing tags with "`" for now
+		playerName = ReplaceAll(playerName.c_str(), " ", "<S>");
+
+		if (paramId == SlippiPremadeText::CHAT_MSG_CHAT_DISABLED)
+		{
+			return premadeTextData = spt.GetPremadeTextData(SlippiPremadeText::SPT_CHAT_DISABLED, playerName.c_str());
+		}
 
 		auto chatMessage = spt.premadeTextsParams[paramId];
 		std::string param = ReplaceAll(chatMessage.c_str(), " ", "<S>");
-		playerName = ReplaceAll(playerName.c_str(), " ", "<S>");
 		premadeTextData = spt.GetPremadeTextData(textId, playerName.c_str(), param.c_str());
 	}
 	else
 	{
 		premadeTextData = spt.GetPremadeTextData(textId);
 	}
+
+	//ERROR_LOG(SLIPPI, "SLIPPI premade text (%d):", premadeTextData.size());
+	//for (int i = 0; i < premadeTextData.size(); i++)
+	//{
+	//	WARN_LOG(SLIPPI, "%X", premadeTextData[i]);
+	//}
 
 	return premadeTextData;
 }
@@ -2572,10 +2826,13 @@ void CEXISlippi::handleLogOutRequest()
 
 void CEXISlippi::handleUpdateAppRequest()
 {
-	main_frame->LowerRenderWindow();
-	user->UpdateApp();
+	bool isUpdating = user->UpdateApp();
 #ifdef _WIN32
-	main_frame->DoExit();
+	if (isUpdating)
+	{
+		main_frame->LowerRenderWindow();
+		main_frame->DoExit();
+	}
 #endif
 }
 
@@ -2688,7 +2945,7 @@ void CEXISlippi::prepareDelayResponse()
 {
 	m_read_queue.clear();
 	m_read_queue.push_back(1); // Indicate this is a real response
-	
+
 	if (NetPlay::IsNetPlayRunning())
 	{
 		// If we are using the old netplay, we don't want to add any additional delay, so return 0
@@ -2740,10 +2997,11 @@ void CEXISlippi::DMAWrite(u32 _uAddr, u32 _uSize)
 	while (bufLoc < _uSize)
 	{
 		byte = memPtr[bufLoc];
+		//INFO_LOG(SLIPPI, "EXI SLIPPI: Loc: %d, Size: %d, Cmd: 0x%x", bufLoc, _uSize, byte);
 		if (!payloadSizes.count(byte))
 		{
 			// This should never happen. Do something else if it does?
-			WARN_LOG(EXPANSIONINTERFACE, "EXI SLIPPI: Invalid command byte: 0x%x", byte);
+			ERROR_LOG(SLIPPI, "EXI SLIPPI: Invalid command byte: 0x%x", byte);
 			return;
 		}
 
@@ -2799,6 +3057,9 @@ void CEXISlippi::DMAWrite(u32 _uAddr, u32 _uSize)
 			break;
 		case CMD_FILE_LENGTH:
 			prepareFileLength(&memPtr[bufLoc + 1]);
+			break;
+		case CMD_FETCH_CODE_SUGGESTION:
+			handleNameEntryLoad(&memPtr[bufLoc + 1]);
 			break;
 		case CMD_FILE_LOAD:
 			prepareFileLoad(&memPtr[bufLoc + 1]);
@@ -2859,7 +3120,7 @@ void CEXISlippi::DMARead(u32 addr, u32 size)
 {
 	if (m_read_queue.empty())
 	{
-		INFO_LOG(EXPANSIONINTERFACE, "EXI SLIPPI DMARead: Empty");
+		ERROR_LOG(SLIPPI, "EXI SLIPPI DMARead: Empty");
 		return;
 	}
 

@@ -31,6 +31,7 @@
 #include "DolphinWX/Input/MicButtonConfigDiag.h"
 #include "DolphinWX/WxEventUtils.h"
 #include "DolphinWX/WxUtils.h"
+#include <wx/valtext.h>
 
 SlippiConfigPane::SlippiConfigPane(wxWindow* parent, wxWindowID id) : wxPanel(parent, id)
 {
@@ -71,8 +72,32 @@ void SlippiConfigPane::InitializeGUI()
 	m_slippi_enable_quick_chat->SetToolTip(
 		_("Enable this to send and receive Quick Chat Messages when online."));
 
-	m_slippi_enable_custom_rules = new wxCheckBox(this, wxID_ANY, _("Enable Custom Rules"));
-	m_slippi_enable_custom_rules->SetToolTip(_("Enable this to play Custom Rules on some Online Modes"));
+    m_slippi_enable_custom_rules = new wxCheckBox(this, wxID_ANY, _("Enable Custom Rules"));
+    m_slippi_enable_custom_rules->SetToolTip(_("Enable this to play Custom Rules on some Online Modes"));
+
+	m_slippi_force_netplay_port_checkbox = new wxCheckBox(this, wxID_ANY, _("Force Netplay Port"));
+	m_slippi_force_netplay_port_checkbox->SetToolTip(
+	    _("Enable this to force Slippi to use a specific network port for online peer-to-peer connections."));
+	m_slippi_force_netplay_port_ctrl =
+	    new wxSpinCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(100, -1));
+	m_slippi_force_netplay_port_ctrl->SetRange(1, 65535);
+
+	m_slippi_force_netplay_lan_ip_checkbox = new wxCheckBox(this, wxID_ANY, _("Force LAN IP"));
+	m_slippi_force_netplay_lan_ip_checkbox->SetToolTip(
+	    _("Enable this to force Slippi to use a specific LAN IP when connecting to users with a matching WAN IP. Should not be required for most users."));
+	m_slippi_netplay_lan_ip_ctrl = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(120, -1));
+	m_slippi_netplay_lan_ip_ctrl->SetMaxLength(20);
+	wxArrayString charsToFilter;
+	wxTextValidator ipTextValidator(wxFILTER_INCLUDE_CHAR_LIST);
+	charsToFilter.Add(wxT("0123456789."));
+	ipTextValidator.SetIncludes(charsToFilter);
+	m_slippi_netplay_lan_ip_ctrl->SetValidator(ipTextValidator);
+
+	// Input settings
+	m_reduce_timing_dispersion_checkbox = new wxCheckBox(this, wxID_ANY, _("Reduce Timing Dispersion"));
+	m_reduce_timing_dispersion_checkbox->SetToolTip(_("Make inputs feel more console-like for overclocked GCC to USB "
+	                                                  "adapters at the cost of 1.6ms of input lag (2ms for single-port official adapter)."));
+
 
 #endif
 	const int space5 = FromDIP(5);
@@ -98,13 +123,28 @@ void SlippiConfigPane::InitializeGUI()
 	sSlippiOnlineSettings->Add(m_slippi_delay_frames_txt, wxGBPosition(0, 0), wxDefaultSpan, wxALIGN_CENTER_VERTICAL);
 	sSlippiOnlineSettings->Add(m_slippi_delay_frames_ctrl, wxGBPosition(0, 1), wxDefaultSpan, wxALIGN_LEFT);
 	sSlippiOnlineSettings->Add(m_slippi_enable_quick_chat, wxGBPosition(1, 0), wxDefaultSpan, wxALIGN_LEFT);
-	sSlippiOnlineSettings->Add(m_slippi_enable_custom_rules, wxGBPosition(2, 0), wxDefaultSpan, wxALIGN_LEFT);
+    sSlippiOnlineSettings->Add(m_slippi_enable_custom_rules, wxGBPosition(2, 0), wxDefaultSpan, wxALIGN_LEFT);
+
+    sSlippiOnlineSettings->Add(m_slippi_force_netplay_port_checkbox, wxGBPosition(2, 0), wxDefaultSpan, wxALIGN_CENTER_VERTICAL);
+	sSlippiOnlineSettings->Add(m_slippi_force_netplay_port_ctrl, wxGBPosition(2, 1), wxDefaultSpan,
+	                           wxALIGN_LEFT | wxRESERVE_SPACE_EVEN_IF_HIDDEN);
+	sSlippiOnlineSettings->Add(m_slippi_force_netplay_lan_ip_checkbox, wxGBPosition(3, 0), wxDefaultSpan,
+	                           wxALIGN_CENTER_VERTICAL);
+	sSlippiOnlineSettings->Add(m_slippi_netplay_lan_ip_ctrl, wxGBPosition(3, 1), wxDefaultSpan,
+	                           wxALIGN_LEFT | wxRESERVE_SPACE_EVEN_IF_HIDDEN);
 
 	wxStaticBoxSizer* const sbSlippiOnlineSettings =
 		new wxStaticBoxSizer(wxVERTICAL, this, _("Slippi Online Settings"));
 	sbSlippiOnlineSettings->AddSpacer(space5);
 	sbSlippiOnlineSettings->Add(sSlippiOnlineSettings, 0, wxEXPAND | wxLEFT | wxRIGHT, space5);
 	sbSlippiOnlineSettings->AddSpacer(space5);
+
+	wxStaticBoxSizer *const sbSlippiInputSettings =
+		new wxStaticBoxSizer(wxVERTICAL, this, _("Slippi Input Settings"));
+	sbSlippiInputSettings->AddSpacer(space5);
+	sbSlippiInputSettings->Add(m_reduce_timing_dispersion_checkbox, 0, wxLEFT | wxRIGHT, space5);
+	sbSlippiInputSettings->AddSpacer(space5);
+
 #endif
 	wxBoxSizer* const main_sizer = new wxBoxSizer(wxVERTICAL);
 #ifndef IS_PLAYBACK
@@ -112,6 +152,8 @@ void SlippiConfigPane::InitializeGUI()
 	main_sizer->Add(sbSlippiReplaySettings, 0, wxEXPAND | wxLEFT | wxRIGHT, space5);
 	main_sizer->AddSpacer(space5);
 	main_sizer->Add(sbSlippiOnlineSettings, 0, wxEXPAND | wxLEFT | wxRIGHT, space5);
+	main_sizer->AddSpacer(space5);
+	main_sizer->Add(sbSlippiInputSettings, 0, wxEXPAND | wxLEFT | wxRIGHT, space5);
 	main_sizer->AddSpacer(space5);
 #endif
 	SetSizer(main_sizer);
@@ -127,6 +169,8 @@ void SlippiConfigPane::LoadGUIValues()
 
 #ifndef IS_PLAYBACK
 	bool enableReplays = startup_params.m_slippiSaveReplays;
+	bool forceNetplayPort = startup_params.m_slippiForceNetplayPort;
+	bool forceLanIp = startup_params.m_slippiForceLanIp;
 
 	m_replay_enable_checkbox->SetValue(enableReplays);
 	m_replay_month_folders_checkbox->SetValue(startup_params.m_slippiReplayMonthFolders);
@@ -138,7 +182,22 @@ void SlippiConfigPane::LoadGUIValues()
 
 	m_slippi_delay_frames_ctrl->SetValue(startup_params.m_slippiOnlineDelay);
 	m_slippi_enable_quick_chat->SetValue(startup_params.m_slippiEnableQuickChat);
-	m_slippi_enable_custom_rules->SetValue(startup_params.m_slippiEnableCustomRules);
+    m_slippi_enable_custom_rules->SetValue(startup_params.m_slippiEnableCustomRules);
+
+	m_slippi_force_netplay_port_checkbox->SetValue(startup_params.m_slippiForceNetplayPort);
+	m_slippi_force_netplay_port_ctrl->SetValue(startup_params.m_slippiNetplayPort);
+	if (!forceNetplayPort) {
+		m_slippi_force_netplay_port_ctrl->Hide();
+	}
+
+	m_slippi_force_netplay_lan_ip_checkbox->SetValue(startup_params.m_slippiForceLanIp);
+	m_slippi_netplay_lan_ip_ctrl->SetValue(startup_params.m_slippiLanIp);
+	if (!forceLanIp)
+	{
+		m_slippi_netplay_lan_ip_ctrl->Hide();
+	}
+
+	m_reduce_timing_dispersion_checkbox->SetValue(startup_params.bReduceTimingDispersion);
 #endif
 }
 
@@ -154,7 +213,15 @@ void SlippiConfigPane::BindEvents()
 
 	m_slippi_delay_frames_ctrl->Bind(wxEVT_SPINCTRL, &SlippiConfigPane::OnDelayFramesChanged, this);
 	m_slippi_enable_quick_chat->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnQuickChatToggle, this);
-	m_slippi_enable_custom_rules->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnCustomRulesToggle, this);
+    m_slippi_enable_custom_rules->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnCustomRulesToggle, this);
+
+	m_slippi_force_netplay_port_checkbox->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnForceNetplayPortToggle, this);
+	m_slippi_force_netplay_port_ctrl->Bind(wxEVT_SPINCTRL, &SlippiConfigPane::OnNetplayPortChanged, this);
+
+	m_slippi_force_netplay_lan_ip_checkbox->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnForceNetplayLanIpToggle, this);
+	m_slippi_netplay_lan_ip_ctrl->Bind(wxEVT_TEXT, &SlippiConfigPane::OnNetplayLanIpChanged, this);
+
+	m_reduce_timing_dispersion_checkbox->Bind(wxEVT_CHECKBOX, &SlippiConfigPane::OnReduceTimingDispersionToggle, this);
 #endif
 }
 
@@ -201,4 +268,41 @@ void SlippiConfigPane::OnReplayDirChanged(wxCommandEvent& event)
 void SlippiConfigPane::OnDelayFramesChanged(wxCommandEvent &event)
 {
 	SConfig::GetInstance().m_slippiOnlineDelay = m_slippi_delay_frames_ctrl->GetValue();
+}
+
+void SlippiConfigPane::OnForceNetplayPortToggle(wxCommandEvent &event)
+{
+	bool enableForcePort = m_slippi_force_netplay_port_checkbox->IsChecked();
+
+	SConfig::GetInstance().m_slippiForceNetplayPort = enableForcePort;
+
+	if (enableForcePort)
+		m_slippi_force_netplay_port_ctrl->Show();
+	else
+		m_slippi_force_netplay_port_ctrl->Hide();
+}
+
+void SlippiConfigPane::OnNetplayPortChanged(wxCommandEvent &event)
+{
+	SConfig::GetInstance().m_slippiNetplayPort = m_slippi_force_netplay_port_ctrl->GetValue();
+}
+
+void SlippiConfigPane::OnForceNetplayLanIpToggle(wxCommandEvent& event) {
+	bool enableForceLanIp = m_slippi_force_netplay_lan_ip_checkbox->IsChecked();
+
+	SConfig::GetInstance().m_slippiForceLanIp = enableForceLanIp;
+
+	if (enableForceLanIp)
+		m_slippi_netplay_lan_ip_ctrl->Show();
+	else
+		m_slippi_netplay_lan_ip_ctrl->Hide();
+}
+
+void SlippiConfigPane::OnNetplayLanIpChanged(wxCommandEvent& event) {
+	SConfig::GetInstance().m_slippiLanIp = m_slippi_netplay_lan_ip_ctrl->GetValue().c_str();
+}
+
+void SlippiConfigPane::OnReduceTimingDispersionToggle(wxCommandEvent& event)
+{
+	SConfig::GetInstance().bReduceTimingDispersion = m_reduce_timing_dispersion_checkbox->GetValue();
 }

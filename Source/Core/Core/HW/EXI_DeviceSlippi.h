@@ -9,6 +9,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"
 #include "Core/HW/EXI_Device.h"
+#include "Core/Slippi/SlippiDirectCodes.h"
 #include "Core/Slippi/SlippiGameFileLoader.h"
 #include "Core/Slippi/SlippiGameReporter.h"
 #include "Core/Slippi/SlippiMatchmaking.h"
@@ -73,6 +74,8 @@ class CEXISlippi : public IEXIDevice
 		CMD_GET_NEW_SEED = 0xBC,
 		CMD_REPORT_GAME = 0xBD,
 		CMD_SET_MATCH_INFO = 0xBE,
+
+		CMD_FETCH_CODE_SUGGESTION = 0xBE,
 
 		// Misc
 		CMD_LOG_MESSAGE = 0xD0,
@@ -139,7 +142,7 @@ class CEXISlippi : public IEXIDevice
 	    {CMD_LOAD_SAVESTATE, 32},
 	    {CMD_GET_MATCH_STATE, 0},
 	    {CMD_FIND_OPPONENT, 19},
-	    {CMD_SET_MATCH_SELECTIONS, 6},
+	    {CMD_SET_MATCH_SELECTIONS, 8},
 	    {CMD_SEND_CHAT_MESSAGE, 2},
 	    {CMD_OPEN_LOGIN, 0},
 	    {CMD_LOGOUT, 0},
@@ -150,6 +153,8 @@ class CEXISlippi : public IEXIDevice
 	    {CMD_REPORT_GAME, 16},
 	    {CMD_SET_MATCH_INFO, 320},
 
+	    {CMD_FETCH_CODE_SUGGESTION, 31},
+
 	    // Misc
 	    {CMD_LOG_MESSAGE, 0xFFFF}, // Variable size... will only work if by itself
 	    {CMD_FILE_LENGTH, 0x40},
@@ -157,8 +162,8 @@ class CEXISlippi : public IEXIDevice
 	    {CMD_GCT_LENGTH, 0x0},
 	    {CMD_GCT_LOAD, 0x4},
 	    {CMD_GET_DELAY, 0x0},
-	    {CMD_PREMADE_TEXT_LENGTH, 0x0},
-	    {CMD_PREMADE_TEXT_LOAD, 0x4},
+	    {CMD_PREMADE_TEXT_LENGTH, 0x2},
+	    {CMD_PREMADE_TEXT_LOAD, 0x2},
 	};
 
 	struct WriteMessage
@@ -203,6 +208,8 @@ class CEXISlippi : public IEXIDevice
 	void handleSendInputs(u8 *payload);
 	void handleCaptureSavestate(u8 *payload);
 	void handleLoadSavestate(u8 *payload);
+	void handleNameEntryAutoComplete(u8 *payload);
+	void handleNameEntryLoad(u8 *payload);
 	void startFindMatch(u8 *payload);
 	void prepareOnlineMatchState();
 	void setMatchSelections(u8 *payload);
@@ -234,6 +241,9 @@ class CEXISlippi : public IEXIDevice
 	void prepareDelayResponse();
 	void preparePremadeTextLength(u8 *payload);
 	void preparePremadeTextLoad(u8 *payload);
+
+	// helper functions
+	bool doesTagMatchInput(u8 *input, u8 inputLen, std::string tag);
 
 	std::vector<u8> loadPremadeText(u8 *payload);
 
@@ -275,6 +285,11 @@ class CEXISlippi : public IEXIDevice
 	// Used to determine when to detect when a new session has started
 	bool isPlaySessionActive = false;
 
+	// We put these at the class level to preserve values in the case of a disconnect
+	// while loading. Without this, someone could load into a game playing the wrong char
+	u8 localPlayerIndex = 0;
+	u8 remotePlayerIndex = 1;
+
   protected:
 	void TransferByte(u8 &byte) override;
 
@@ -286,7 +301,11 @@ class CEXISlippi : public IEXIDevice
 	std::unique_ptr<SlippiNetplayClient> slippi_netplay;
 	std::unique_ptr<SlippiMatchmaking> matchmaking;
 	std::unique_ptr<SlippiGameReporter> gameReporter;
+	std::unique_ptr<SlippiDirectCodes> directCodes;
+	std::unique_ptr<SlippiDirectCodes> teamsCodes;
 
 	std::map<s32, std::unique_ptr<SlippiSavestate>> activeSavestates;
 	std::deque<std::unique_ptr<SlippiSavestate>> availableSavestates;
+
+	std::vector<u16> allowedStages;
 };

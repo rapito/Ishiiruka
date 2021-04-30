@@ -45,7 +45,8 @@ enum GameType
 {
 	GAMETYPE_OTHER,
 	GAMETYPE_MELEE_NTSC,
-	GAMETYPE_MELEE_20XX
+	GAMETYPE_MELEE_20XX,
+	GAMETYPE_MELEE_UPTM,
 };
 
 enum PollingMethod
@@ -132,13 +133,7 @@ struct SConfig : NonCopyable
 	bool bQoSEnabled = true;
 	bool bAdapterWarning = true;
 
-	bool bIncreaseProcessPriority = true;
-	bool bSaturatePollingThreadPriority = true;
-	bool bUseEngineStabilization = true;
-	bool bUseSteadyStateEngineStabilization = true;
-	bool bUseUsbPollingStabilization = true;
-	bool bUseAdapterTimingReconstructionWhenApplicable = true;
-	bool bUse5994HzStabilization = true;
+	bool bReduceTimingDispersion = false;
 
 	MeleeLagReductionCode iLagReductionCode = MELEE_LAG_REDUCTION_CODE_UNSET;
 	bool bHasShownLagReductionWarning = false;
@@ -149,6 +144,10 @@ struct SConfig : NonCopyable
     bool m_slippiEnableCustomRules = true;
     bool m_slippiReplayMonthFolders = false;
 	std::string m_strSlippiReplayDir;
+	bool m_slippiForceNetplayPort = false;
+	int m_slippiNetplayPort;
+	bool m_slippiForceLanIp = false;
+	std::string m_slippiLanIp = "";
 	bool m_meleeUserIniBootstrapped = false;
 	bool m_blockingPipes = false;
 	bool m_coutEnabled = false;

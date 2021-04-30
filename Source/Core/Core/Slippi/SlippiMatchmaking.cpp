@@ -83,6 +83,12 @@ std::unique_ptr<SlippiNetplayClient> SlippiMatchmaking::GetNetplayClient()
 	return std::move(m_netplayClient);
 }
 
+bool SlippiMatchmaking::IsFixedRulesMode(SlippiMatchmaking::OnlinePlayMode mode)
+{
+	return mode == SlippiMatchmaking::OnlinePlayMode::UNRANKED ||
+		mode == SlippiMatchmaking::OnlinePlayMode::RANKED;
+}
+
 void SlippiMatchmaking::sendMessage(json msg)
 {
 	enet_uint32 flags = ENET_PACKET_FLAG_RELIABLE;
@@ -121,7 +127,6 @@ int SlippiMatchmaking::receiveMessage(json &msg, int timeoutMs)
 			buf.insert(buf.end(), netEvent.packet->data, netEvent.packet->data + netEvent.packet->dataLength);
 
 			std::string str(buf.begin(), buf.end());
-			INFO_LOG(SLIPPI_ONLINE, "[Matchmaking] Received: %s", str.c_str());
 			msg = json::parse(str);
 
 			enet_packet_destroy(netEvent.packet);
@@ -211,10 +216,12 @@ void SlippiMatchmaking::startMatchmaking()
 	auto userInfo = m_user->GetUserInfo();
 	while (m_client == nullptr && retryCount < 15)
 	{
-		if (userInfo.port > 0)
-			m_hostPort = userInfo.port;
+		bool customPort = SConfig::GetInstance().m_slippiForceNetplayPort;
+
+		if (customPort)
+			m_hostPort = SConfig::GetInstance().m_slippiNetplayPort;
 		else
-			m_hostPort = 49000 + (generator() % 2000);
+			m_hostPort = 41000 + (generator() % 10000);
 		ERROR_LOG(SLIPPI_ONLINE, "[Matchmaking] Port to use: %d...", m_hostPort);
 
 		// We are explicitly setting the client address because we are trying to utilize our connection
@@ -289,10 +296,22 @@ void SlippiMatchmaking::startMatchmaking()
 	    return;
 	}*/
 
-	// Compute LAN IP, in case 2 people are connecting from one IP we can send them each other's local
-	// IP instead of public. Experimental to allow people from behind one router to connect.
+	// The following code attempts to fetch the LAN IP such that when remote IPs match, the
+	// LAN IP can be tried in order to establish a connection in the case where the players
+	// don't have NAT loopback which allows that type of connection.
+	// Right now though, the logic would replace the WAN IP with the LAN IP and if the LAN
+	// IP connection didn't work but WAN would have, the players can no longer connect.
+	// Two things need to happen to improtve this logic:
+	// 1. The connection must be changed to try both the LAN and WAN IPs in the case of
+	//    matching WAN IPs
+	// 2. The process for fetching LAN IP must be improved. For me, the current method
+	//    would always fetch my VirtualBox IP, which is not correct. I also think perhaps
+	//    it didn't work on Linux/Mac but I haven't tested it.
+	// I left this logic on for now under the assumption that it will help more people than
+	// it will hurt
+	char lanAddr[30] = "";
+
 	char host[256];
-	char lanAddr[30];
 	char *IP;
 	struct hostent *host_entry;
 	int hostname;
@@ -304,17 +323,32 @@ void SlippiMatchmaking::startMatchmaking()
 	else
 	{
 		host_entry = gethostbyname(host); // find host information
-		if (host_entry == NULL)
+		if (host_entry == NULL || host_entry->h_addrtype != AF_INET)
 		{
 			ERROR_LOG(SLIPPI_ONLINE, "[Matchmaking] Error finding LAN host");
 		}
 		else
 		{
-			IP = inet_ntoa(*((struct in_addr *)host_entry->h_addr_list[0])); // Convert into IP string
-			INFO_LOG(SLIPPI_ONLINE, "[Matchmaking] LAN IP: %s", IP);
+			// Fetch the last IP (because that was correct for me, not sure if it will be for all)
+			int i = 0;
+			while (host_entry->h_addr_list[i] != 0)
+			{
+				IP = inet_ntoa(*((struct in_addr *)host_entry->h_addr_list[i]));
+				WARN_LOG(SLIPPI_ONLINE, "[Matchmaking] IP at idx %d: %s", i, IP);
+				i++;
+			}
+
 			sprintf(lanAddr, "%s:%d", IP, m_hostPort);
 		}
 	}
+
+	if (SConfig::GetInstance().m_slippiForceLanIp)
+	{
+		WARN_LOG(SLIPPI_ONLINE, "[Matchmaking] Overwriting LAN IP sent with configured address");
+		sprintf(lanAddr, "%s:%d", SConfig::GetInstance().m_slippiLanIp.c_str(), m_hostPort);
+	}
+
+	WARN_LOG(SLIPPI_ONLINE, "[Matchmaking] Sending LAN address: %s", lanAddr);
 
 	std::vector<u8> connectCodeBuf;
 	connectCodeBuf.insert(connectCodeBuf.end(), m_searchSettings.connectCode.begin(),
@@ -459,6 +493,8 @@ void SlippiMatchmaking::handleMatchmaking()
 
 			auto lanIp = el.value("ipAddressLan", "1.1.1.1:123");
 
+			WARN_LOG(SLIPPI_ONLINE, "LAN IP: %s", lanIp.c_str());
+
 			if (exIpParts[0] != localExternalIp || lanIp.empty())
 			{
 				// If external IPs are different, just use that address
@@ -473,6 +509,35 @@ void SlippiMatchmaking::handleMatchmaking()
 		}
 	}
 	m_isHost = getResp.value("isHost", false);
+
+	// Get allowed stages. For stage select modes like direct and teams, this will only impact the first map selected
+	m_allowedStages.clear();
+	auto stages = getResp["stages"];
+	if (stages.is_array())
+	{
+		for (json::iterator it = stages.begin(); it != stages.end(); ++it)
+		{
+			json el = *it;
+			auto stageId = el.get<int>();
+			m_allowedStages.push_back(stageId);
+		}
+	}
+	
+	if (m_allowedStages.empty())
+	{
+		// Default case, shouldn't ever really be hit but it's here just in case
+		m_allowedStages.push_back(0x3); // Pokemon
+		m_allowedStages.push_back(0x8); // Yoshi's Story
+		m_allowedStages.push_back(0x1C); // Dream Land
+		m_allowedStages.push_back(0x1F); // Battlefield
+		m_allowedStages.push_back(0x20); // Final Destination
+
+		// Add FoD if singles
+		if (m_playerInfo.size() == 2)
+		{
+			m_allowedStages.push_back(0x2); // FoD
+		}
+	}
 
 	// Disconnect and destroy enet client to mm server
 	terminateMmConnection();
@@ -489,6 +554,11 @@ int SlippiMatchmaking::LocalPlayerIndex()
 std::vector<SlippiUser::UserInfo> SlippiMatchmaking::GetPlayerInfo()
 {
 	return m_playerInfo;
+}
+
+std::vector<u16> SlippiMatchmaking::GetStages()
+{
+	return m_allowedStages;
 }
 
 std::string SlippiMatchmaking::GetPlayerName(u8 port)
@@ -572,7 +642,11 @@ void SlippiMatchmaking::handleConnecting()
 					if (p >= m_localPlayerIndex)
 						p++;
 
-					err << m_playerInfo[p].displayName << " ";
+					err << m_playerInfo[p].displayName;
+					if (i < failedConns.size() - 1)
+					{
+						err << ", ";
+					}
 				}
 				m_errorMsg = err.str();
 			}
