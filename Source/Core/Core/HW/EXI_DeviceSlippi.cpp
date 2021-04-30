@@ -2233,9 +2233,9 @@ void CEXISlippi::prepareOnlineMatchState()
 			rps[i].playerIdx = i + 1;
 			rps[i].isCharacterSelected = true;
 			rps[i].isMatchConfigSet = true;
-			rps[i].matchConfig = defaultMatchBlock;
+			rps[i].matchConfig = lps.matchConfig;
 			rps[i].areCustomRulesAllowed = true;
-			rps[i].stagesBlock = defaultStagesBlock;
+			rps[i].stagesBlock = lps.stagesBlock;
 		}
 
 		if (lastSearch.mode == SlippiMatchmaking::OnlinePlayMode::TEAMS)
@@ -2306,7 +2306,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
         // Check if is a custom rules match or not
         // Set match rules of the decider if mode is direct or team
-        if (lastSearch.mode >= directMode && allowCustomRules && localSelections.isMatchConfigSet)
+        if (SlippiMatchmaking::IsFixedRulesMode(lastSearch.mode) && allowCustomRules && localSelections.isMatchConfigSet)
         {
             onlineMatchBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].matchConfig : lps.matchConfig;
             stagesBlock = !isDecider && rps[0].isMatchConfigSet ? rps[0].stagesBlock : lps.stagesBlock;
@@ -2415,7 +2415,7 @@ void CEXISlippi::prepareOnlineMatchState()
         for (auto selections : orderedSelections)
         {
 			// TODO: use proper mode check
-            bool shouldCheckForCustomRules = lastSearch.mode >= directMode && allowCustomRules && selections.areCustomRulesAllowed;
+            bool shouldCheckForCustomRules = SlippiMatchmaking::IsFixedRulesMode(lastSearch.mode) && allowCustomRules && selections.areCustomRulesAllowed;
             // Check if all players already set their match info
             if (shouldCheckForCustomRules && (!selections.isMatchConfigSet && !isDecider))
             {
@@ -2436,7 +2436,7 @@ void CEXISlippi::prepareOnlineMatchState()
 		// Turn pause off in unranked/ranked, on in other modes
 		// TODO: use proper check for modes
 		u8 *gameBitField3 = (u8 *)&onlineMatchBlock[2];
-        if (!(isCustomRules && lastSearch.mode >= directMode && allowCustomRules))
+        if (!(isCustomRules && SlippiMatchmaking::IsFixedRulesMode(lastSearch.mode) && allowCustomRules))
         {
 		    *gameBitField3 = SlippiMatchmaking::IsFixedRulesMode(lastSearch.mode) ? *gameBitField3 | 0x8 : *gameBitField3 & 0xF7;
 		}
@@ -2617,6 +2617,12 @@ void CEXISlippi::setMatchInfo(u8 *payload)
 	for(int i=0;i<0x138;i++) {
         ERROR_LOG(SLIPPI, "SMI: 0x%X", matchConfig[i]);
     }
+
+	// TODO: review
+#ifdef LOCAL_TESTING
+	if(!slippi_netplay)
+        slippi_netplay = std::make_unique<SlippiNetplayClient>(true);
+#endif
 
 	if (slippi_netplay)
 	{
