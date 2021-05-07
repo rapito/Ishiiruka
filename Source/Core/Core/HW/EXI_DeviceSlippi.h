@@ -141,7 +141,7 @@ class CEXISlippi : public IEXIDevice
 	    {CMD_LOAD_SAVESTATE, 32},
 	    {CMD_GET_MATCH_STATE, 0},
 	    {CMD_FIND_OPPONENT, 19},
-	    {CMD_SET_MATCH_SELECTIONS, 8},
+	    {CMD_SET_MATCH_SELECTIONS, 12},
 	    {CMD_SEND_CHAT_MESSAGE, 2},
 	    {CMD_OPEN_LOGIN, 0},
 	    {CMD_LOGOUT, 0},
@@ -150,7 +150,7 @@ class CEXISlippi : public IEXIDevice
 	    {CMD_CLEANUP_CONNECTION, 0},
 	    {CMD_GET_NEW_SEED, 0},
 	    {CMD_REPORT_GAME, 16},
-	    {CMD_SET_MATCH_INFO, 320},
+	    {CMD_SET_MATCH_INFO, 0x138},
 
 	    {CMD_FETCH_CODE_SUGGESTION, 31},
 

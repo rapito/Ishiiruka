@@ -2042,7 +2042,7 @@ void CEXISlippi::prepareOnlineMatchState()
 
 	m_read_queue.push_back(mmState); // Matchmaking State
 
-	u8 matchInfoReady = 1;
+	bool matchInfoReady = true;
 	u8 localPlayerReady = localSelections.isCharacterSelected;
 	u8 remotePlayersReady = 0;
 
@@ -2367,6 +2367,9 @@ void CEXISlippi::prepareOnlineMatchState()
 		};
 		auto teamAssignments = teamAssignmentPermutations[rngOffset % teamAssignmentPermutations.size()];
 
+		onlineMatchBlock = defaultMatchBlock;
+		stagesBlock = defaultStagesBlock;
+
 		// Overwrite player character choices
 		for (auto &s : orderedSelections)
 		{
@@ -2425,7 +2428,7 @@ void CEXISlippi::prepareOnlineMatchState()
             {
                 // if there's at least one player that has not set their rules,
                 // then set match info as not ready
-                matchInfoReady = 0;
+                matchInfoReady = false;
             }
 
             if (!selections.isStageSelected)
@@ -2463,8 +2466,10 @@ void CEXISlippi::prepareOnlineMatchState()
 		rightTeamPlayers[3] = rightTeamSize;
 	}
 
+    matchInfoReady = true;
+    isCustomRules = true;
 	// Add match info ready status
-	m_read_queue.push_back(matchInfoReady);
+	m_read_queue.push_back((bool)matchInfoReady);
 
 	// Add isCustomRules boolean
 	m_read_queue.push_back((bool)isCustomRules);
@@ -2586,7 +2591,7 @@ void CEXISlippi::setMatchSelections(u8 *payload)
 	s.stageId = Common::swap16(&payload[4]);
 	u8 stageSelectOption = payload[6];
 	u8 onlineMode = payload[7];
-	s.stagesBlock = Common::swap32(&payload[7]);
+	s.stagesBlock = Common::swap32(&payload[8]);
     // Ensure match selections are the default ones when they are set the first time
 	s.isMatchConfigSet = false;
 	s.matchConfig = defaultMatchBlock;
@@ -2618,14 +2623,12 @@ void CEXISlippi::setMatchInfo(u8 *payload)
 
 	localSelections.isMatchConfigSet = true;
 	localSelections.matchConfig = matchConfig;
-	for(int i=0;i<0x138;i++) {
-        ERROR_LOG(SLIPPI, "SMI: 0x%X", matchConfig[i]);
-    }
+    ERROR_LOG(SLIPPI, "SMI: 0x%X", matchConfig.size());
 
 	// TODO: review
 #ifdef LOCAL_TESTING
-	if(!slippi_netplay)
-        slippi_netplay = std::make_unique<SlippiNetplayClient>(true);
+//	if(!slippi_netplay)
+//        slippi_netplay = std::make_unique<SlippiNetplayClient>(true);
 #endif
 
 	if (slippi_netplay)
@@ -3016,7 +3019,9 @@ void CEXISlippi::DMAWrite(u32 _uAddr, u32 _uSize)
 		}
 
 		u32 payloadLen = payloadSizes[byte];
-		switch (byte)
+        ERROR_LOG(SLIPPI_ONLINE, "EXI SLIPPI: byte: 0x%x, PAYLOAD LEN: %d, bufloc: %d", byte, payloadLen, bufLoc);
+
+        switch (byte)
 		{
 		case CMD_RECEIVE_GAME_END:
 			writeToFileAsync(&memPtr[bufLoc], payloadLen + 1, "close");
